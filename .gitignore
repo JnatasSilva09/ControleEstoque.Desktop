@@ -1,0 +1,18 @@
+# --- Build / Compilacao (.NET / WinForms) ---
+[Bb]in/
+[Oo]bj/
+[Ll]og/
+[Ll]ogs/
+*.suo
+*.user
+*.userosscache
+
+# --- Base de Dados Local e Temporarios ---
+*.db
+*.db-shm
+*.db-wal
+*.sqlite
+
+# --- Sistema Operacional ---
+.DS_Store
+Thumbs.db
