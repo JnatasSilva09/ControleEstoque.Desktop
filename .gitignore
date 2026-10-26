@@ -1,0 +1,12 @@
+# Arquivos gerados pela compilação
+bin/
+obj/
+.vs/
+*.user
+*.suo
+
+# Banco de dados e backups locais nunca devem ir para o Git
+*.db
+*.db-journal
+backups/
+logs/

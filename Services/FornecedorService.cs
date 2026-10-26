@@ -28,7 +28,25 @@ namespace ControleEstoque.Desktop.Services
             using var db = new AppDbContext();
             return db.Fornecedores.AsNoTracking().FirstOrDefault(f => f.Id == id);
         }
+public void Excluir(int id)
+{
+    using var db = new AppDbContext();
 
+    // Validação de segurança: verifica se existem produtos associados a este fornecedor
+    bool possuiProdutos = db.Produtos.Any(p => p.FornecedorId == id);
+    if (possuiProdutos)
+    {
+        throw new InvalidOperationException(
+            "Não é possível excluir este fornecedor pois existem produtos associados a ele.");
+    }
+
+    var fornecedor = db.Fornecedores.FirstOrDefault(f => f.Id == id);
+    if (fornecedor != null)
+    {
+        db.Fornecedores.Remove(fornecedor);
+        db.SaveChanges();
+    }
+}
         public void Add(Fornecedor fornecedor)
         {
             using var db = new AppDbContext();
@@ -66,7 +84,7 @@ namespace ControleEstoque.Desktop.Services
         public void Delete(int id)
         {
             using var db = new AppDbContext();
-            var fornecedor = db.Fornecedores.Find(id);
+            var fornecedor = db.Fornecedores.FirstOrDefault(f => f.Id == id);
 
             if (fornecedor != null)
             {

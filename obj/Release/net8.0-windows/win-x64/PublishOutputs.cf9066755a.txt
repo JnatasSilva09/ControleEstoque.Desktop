@@ -1,8 +1,0 @@
-C:\Users\ricar\OneDrive\Área de Trabalho\ControleDeEstoque\ControleEstoque.Desktop\bin\Release\net8.0-windows\win-x64\publish\ControleEstoque.Desktop.pdb
-C:\Users\ricar\OneDrive\Área de Trabalho\ControleDeEstoque\ControleEstoque.Desktop\bin\Release\net8.0-windows\win-x64\publish\D3DCompiler_47_cor3.dll
-C:\Users\ricar\OneDrive\Área de Trabalho\ControleDeEstoque\ControleEstoque.Desktop\bin\Release\net8.0-windows\win-x64\publish\PenImc_cor3.dll
-C:\Users\ricar\OneDrive\Área de Trabalho\ControleDeEstoque\ControleEstoque.Desktop\bin\Release\net8.0-windows\win-x64\publish\PresentationNative_cor3.dll
-C:\Users\ricar\OneDrive\Área de Trabalho\ControleDeEstoque\ControleEstoque.Desktop\bin\Release\net8.0-windows\win-x64\publish\vcruntime140_cor3.dll
-C:\Users\ricar\OneDrive\Área de Trabalho\ControleDeEstoque\ControleEstoque.Desktop\bin\Release\net8.0-windows\win-x64\publish\wpfgfx_cor3.dll
-C:\Users\ricar\OneDrive\Área de Trabalho\ControleDeEstoque\ControleEstoque.Desktop\bin\Release\net8.0-windows\win-x64\publish\e_sqlite3.dll
-C:\Users\ricar\OneDrive\Área de Trabalho\ControleDeEstoque\ControleEstoque.Desktop\bin\Release\net8.0-windows\win-x64\publish\ControleEstoque.Desktop.exe

@@ -102,7 +102,7 @@ namespace ControleEstoque.Desktop.Forms
             CriarBotaoMenu("⬇   Saída de Estoque", () => MostrarTela(new SaidaControl()));
             CriarBotaoMenu("📋   Movimentações", () => MostrarTela(new MovimentacoesControl()));
             CriarBotaoMenu("📈   Relatórios", () => MostrarTela(new RelatoriosControl()));
-            CriarBotaoMenu("⚙   Configurações", () => MostrarTela(new ConfiguracoesControl()));
+         CriarBotaoMenu("⚙   Configurações", () => MostrarTela(new ConfiguracoesControl(_usuarioLogado)));
 
             if (_usuarioLogado.Perfil == PerfilUsuario.Administrador)
             {

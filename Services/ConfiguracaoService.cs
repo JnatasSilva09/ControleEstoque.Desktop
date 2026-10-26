@@ -28,7 +28,7 @@ namespace ControleEstoque.Desktop.Services
             using var db = new AppDbContext();
             
             // Busca o registro existente pelo ID ou pega o primeiro registro que houver
-            var existente = db.Configuracoes.Find(configuracao.Id) ?? db.Configuracoes.FirstOrDefault();
+            var existente = db.Configuracoes.FirstOrDefault(c => c.Id == configuracao.Id) ?? db.Configuracoes.FirstOrDefault();
 
             if (existente == null)
             {

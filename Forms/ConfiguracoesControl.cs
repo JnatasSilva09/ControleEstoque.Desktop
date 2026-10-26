@@ -2,6 +2,7 @@ using System;
 using System.Drawing;
 using System.IO;
 using System.Windows.Forms;
+using ControleEstoque.Desktop.Models;
 using ControleEstoque.Desktop.Services;
 
 namespace ControleEstoque.Desktop.Forms
@@ -9,6 +10,7 @@ namespace ControleEstoque.Desktop.Forms
     public class ConfiguracoesControl : UserControl
     {
         private readonly ConfiguracaoService _service = new();
+        private readonly Usuario _usuarioLogado;
 
         private readonly TextBox _txtNomeEmpresa = new();
         private readonly TextBox _txtCnpj = new();
@@ -17,11 +19,17 @@ namespace ControleEstoque.Desktop.Forms
         private readonly TextBox _txtEmail = new();
         private readonly TextBox _txtEndereco = new();
         private readonly PictureBox _picLogo = new();
+        private readonly Button _btnSalvar = new();
+        private readonly Button _btnBackup = new();
+        private readonly Button _btnEscolherLogo = new();
+        
         private byte[]? _logoBytes;
         private int _configId;
 
-        public ConfiguracoesControl()
+        public ConfiguracoesControl(Usuario usuarioLogado)
         {
+            _usuarioLogado = usuarioLogado;
+
             Dock = DockStyle.Fill;
             Padding = new Padding(25);
             BackColor = Color.FromArgb(245, 246, 248);
@@ -63,34 +71,39 @@ namespace ControleEstoque.Desktop.Forms
             _picLogo.SizeMode = PictureBoxSizeMode.Zoom;
             painel.Controls.Add(_picLogo);
 
-            var btnEscolherLogo = new Button
-            {
-                Text = "Escolher imagem...",
-                Location = new Point(135, y),
-                Size = new Size(150, 30)
-            };
-            btnEscolherLogo.Click += BtnEscolherLogo_Click;
-            painel.Controls.Add(btnEscolherLogo);
+            _btnEscolherLogo.Text = "Escolher imagem...";
+            _btnEscolherLogo.Location = new Point(135, y);
+            _btnEscolherLogo.Size = new Size(150, 30);
+            _btnEscolherLogo.Click += BtnEscolherLogo_Click;
+            painel.Controls.Add(_btnEscolherLogo);
 
             y += 115;
 
-            var btnSalvar = new Button
-            {
-                Text = "Salvar Configurações",
-                Location = new Point(20, y),
-                Size = new Size(200, 38),
-                BackColor = Color.FromArgb(39, 174, 96),
-                ForeColor = Color.White,
-                FlatStyle = FlatStyle.Flat
-            };
-            btnSalvar.FlatAppearance.BorderSize = 0;
-            btnSalvar.Click += BtnSalvar_Click;
-            painel.Controls.Add(btnSalvar);
+            _btnSalvar.Text = "Salvar Configurações";
+            _btnSalvar.Location = new Point(20, y);
+            _btnSalvar.Size = new Size(200, 38);
+            _btnSalvar.BackColor = Color.FromArgb(39, 174, 96);
+            _btnSalvar.ForeColor = Color.White;
+            _btnSalvar.FlatStyle = FlatStyle.Flat;
+            _btnSalvar.FlatAppearance.BorderSize = 0;
+            _btnSalvar.Click += BtnSalvar_Click;
+            painel.Controls.Add(_btnSalvar);
+
+            _btnBackup.Text = "Fazer Backup do Banco";
+            _btnBackup.Location = new Point(240, y);
+            _btnBackup.Size = new Size(200, 38);
+            _btnBackup.FlatStyle = FlatStyle.Flat;
+            _btnBackup.Click += BtnBackup_Click;
+            painel.Controls.Add(_btnBackup);
 
             y += 60;
             painel.Height = y;
 
-            Load += (s, e) => CarregarConfiguracao();
+            Load += (s, e) => 
+            {
+                CarregarConfiguracao();
+                AplicarPermissoes();
+            };
         }
 
         private void AdicionarCampo(Panel painel, string rotulo, TextBox campo, ref int y)
@@ -102,6 +115,27 @@ namespace ControleEstoque.Desktop.Forms
             campo.Size = new Size(500, 26);
             painel.Controls.Add(campo);
             y += 46;
+        }
+
+        private void AplicarPermissoes()
+        {
+            // Se o usuário logado for Operador, bloqueia a edição das configurações globais da empresa
+            if (_usuarioLogado.Perfil != PerfilUsuario.Administrador)
+            {
+                _txtNomeEmpresa.ReadOnly = true;
+                _txtCnpj.ReadOnly = true;
+                _txtTelefone.ReadOnly = true;
+                _txtWhatsApp.ReadOnly = true;
+                _txtEmail.ReadOnly = true;
+                _txtEndereco.ReadOnly = true;
+                _btnEscolherLogo.Enabled = false;
+                _btnSalvar.Enabled = false;
+                _btnBackup.Enabled = false;
+                _btnSalvar.BackColor = Color.LightGray;
+
+                ToolTip dica = new();
+                dica.SetToolTip(_btnSalvar, "Apenas administradores podem alterar as configurações da empresa.");
+            }
         }
 
         private void CarregarConfiguracao()
@@ -130,6 +164,8 @@ namespace ControleEstoque.Desktop.Forms
 
         private void BtnEscolherLogo_Click(object? sender, EventArgs e)
         {
+            if (_usuarioLogado.Perfil != PerfilUsuario.Administrador) return;
+
             using var dialog = new OpenFileDialog
             {
                 Filter = "Imagens (*.png;*.jpg;*.jpeg)|*.png;*.jpg;*.jpeg",
@@ -157,7 +193,7 @@ namespace ControleEstoque.Desktop.Forms
                 using var ms = new MemoryStream(bytes);
                 var imgAnterior = _picLogo.Image;
                 _picLogo.Image = Image.FromStream(ms);
-                imgAnterior?.Dispose(); // Libera recurso da imagem anterior da memória
+                imgAnterior?.Dispose();
             }
             else
             {
@@ -165,8 +201,43 @@ namespace ControleEstoque.Desktop.Forms
             }
         }
 
+        private void BtnBackup_Click(object? sender, EventArgs e)
+        {
+            if (_usuarioLogado.Perfil != PerfilUsuario.Administrador)
+            {
+                MessageBox.Show("Acesso negado. Apenas administradores podem fazer backup.", "Permissão Insuficiente", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+
+            using var dialogo = new SaveFileDialog
+            {
+                Filter = "Banco de dados (*.db)|*.db",
+                Title = "Salvar backup do banco de dados",
+                FileName = $"backup-estoque-{DateTime.Now:yyyyMMdd-HHmm}.db"
+            };
+
+            if (dialogo.ShowDialog() != DialogResult.OK) return;
+
+            try
+            {
+                Services.BackupService.SalvarCopia(dialogo.FileName);
+                MessageBox.Show("Backup salvo com sucesso!", "Sucesso", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            }
+            catch (Exception ex)
+            {
+                Helpers.LogHelper.Erro(ex, "Backup manual");
+                MessageBox.Show($"Erro ao fazer o backup: {ex.Message}", "Erro", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
+
         private void BtnSalvar_Click(object? sender, EventArgs e)
         {
+            if (_usuarioLogado.Perfil != PerfilUsuario.Administrador)
+            {
+                MessageBox.Show("Acesso negado. Apenas administradores podem salvar as configurações.", "Permissão Insuficiente", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+
             if (string.IsNullOrWhiteSpace(_txtNomeEmpresa.Text))
             {
                 MessageBox.Show("O nome da empresa é obrigatório.", "Atenção", MessageBoxButtons.OK, MessageBoxIcon.Warning);

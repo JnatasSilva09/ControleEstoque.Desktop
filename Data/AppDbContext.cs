@@ -1,73 +1,95 @@
+using Microsoft.EntityFrameworkCore;
 using System;
 using System.IO;
-using Microsoft.EntityFrameworkCore;
+using System.Threading;
+using System.Threading.Tasks;
+using ControleEstoque.Desktop.Helpers;
 using ControleEstoque.Desktop.Models;
 
 namespace ControleEstoque.Desktop.Data
 {
     public class AppDbContext : DbContext
     {
-        public DbSet<Produto> Produtos { get; set; } = null!;
-        public DbSet<Categoria> Categorias { get; set; } = null!;
-        public DbSet<Fornecedor> Fornecedores { get; set; } = null!;
-        public DbSet<Movimentacao> Movimentacoes { get; set; } = null!;
-        public DbSet<Configuracao> Configuracoes { get; set; } = null!;
-        public DbSet<Usuario> Usuarios { get; set; } = null!;
+        public DbSet<Produto> Produtos { get; set; }
+        public DbSet<Categoria> Categorias { get; set; }
+        public DbSet<Fornecedor> Fornecedores { get; set; }
+        public DbSet<Usuario> Usuarios { get; set; }
+        public DbSet<Movimentacao> Movimentacoes { get; set; }
+        public DbSet<Configuracao> Configuracoes { get; set; }
+        public DbSet<Empresa> Empresas { get; set; } // Adicionado para resolver o erro do AuthService
+
+        // Empresa de quem está logado. É lida na hora em que o contexto é criado
+        // e usada nos filtros abaixo, assim cada empresa só enxerga os próprios dados.
+        public int EmpresaIdAtual { get; } = Sessao.EmpresaId;
+
+        public static string PastaDados => Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "ControleDeEstoque");
+
+        public static string CaminhoBanco => Path.Combine(PastaDados, "estoque.db");
 
         protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
         {
-            if (!optionsBuilder.IsConfigured)
+            if (!Directory.Exists(PastaDados))
             {
-                // Define o caminho seguro na pasta AppData/Local do utilizador
-                string pastaAppData = Path.Combine(
-                    Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-                    "ControleEstoque"
-                );
-
-                // Garante que a pasta existe no computador do cliente
-                if (!Directory.Exists(pastaAppData))
-                {
-                    Directory.CreateDirectory(pastaAppData);
-                }
-
-                string caminhoBanco = Path.Combine(pastaAppData, "estoque.db");
-
-                // Configura o SQLite para utilizar o caminho absoluto e ativar as Foreign Keys
-                optionsBuilder.UseSqlite($"Data Source={caminhoBanco};Foreign Keys=True;");
+                Directory.CreateDirectory(PastaDados);
             }
+
+            optionsBuilder.UseSqlite($"Data Source={CaminhoBanco};Foreign Keys=True;");
         }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
 
-            // Um produto pode ter uma categoria (opcional).
-            // Se a categoria for excluída, o produto continua existindo, só perde a categoria.
+            // Filtros: cada consulta só traz os registros da empresa logada
+            modelBuilder.Entity<Produto>().HasQueryFilter(e => e.EmpresaId == EmpresaIdAtual);
+            modelBuilder.Entity<Categoria>().HasQueryFilter(e => e.EmpresaId == EmpresaIdAtual);
+            modelBuilder.Entity<Fornecedor>().HasQueryFilter(e => e.EmpresaId == EmpresaIdAtual);
+            modelBuilder.Entity<Movimentacao>().HasQueryFilter(e => e.EmpresaId == EmpresaIdAtual);
+            modelBuilder.Entity<Configuracao>().HasQueryFilter(e => e.EmpresaId == EmpresaIdAtual);
+
+            // O código do produto não pode se repetir dentro da mesma empresa
             modelBuilder.Entity<Produto>()
-                .HasOne(p => p.Categoria)
-                .WithMany(c => c.Produtos)
-                .HasForeignKey(p => p.CategoriaId)
-                .OnDelete(DeleteBehavior.SetNull);
+                .HasIndex(p => new { p.EmpresaId, p.Codigo })
+                .IsUnique();
 
-            // Um produto pode ter um fornecedor (opcional), mesma regra acima.
-            modelBuilder.Entity<Produto>()
-                .HasOne(p => p.Fornecedor)
-                .WithMany(f => f.Produtos)
-                .HasForeignKey(p => p.FornecedorId)
-                .OnDelete(DeleteBehavior.SetNull);
-
-            // Uma movimentação sempre pertence a um produto.
-            // Se o produto for excluído, o histórico de movimentações dele também é removido.
-            modelBuilder.Entity<Movimentacao>()
-                .HasOne(m => m.Produto)
-                .WithMany()
-                .HasForeignKey(m => m.ProdutoId)
-                .OnDelete(DeleteBehavior.Cascade);
-
-            // Não pode existir dois usuários com o mesmo login.
+            // O login é usado para entrar no sistema, então não pode se repetir
             modelBuilder.Entity<Usuario>()
                 .HasIndex(u => u.Login)
                 .IsUnique();
+        }
+
+        // Antes de salvar, garante que todo registro novo fica na empresa logada
+        // e que ninguém consegue alterar um registro de outra empresa.
+        private void AplicarEmpresaAtual()
+        {
+            foreach (var entrada in ChangeTracker.Entries<IEmpresaEntity>())
+            {
+                if (entrada.State == EntityState.Added)
+                {
+                    if (EmpresaIdAtual == 0)
+                        throw new InvalidOperationException("Nenhuma empresa ativa na sessão. Faça login novamente.");
+
+                    entrada.Entity.EmpresaId = EmpresaIdAtual;
+                }
+                else if (entrada.State == EntityState.Modified || entrada.State == EntityState.Deleted)
+                {
+                    if (entrada.Entity.EmpresaId != EmpresaIdAtual)
+                        throw new InvalidOperationException("Operação não permitida para este registro.");
+                }
+            }
+        }
+
+        public override int SaveChanges(bool acceptAllChangesOnSuccess)
+        {
+            AplicarEmpresaAtual();
+            return base.SaveChanges(acceptAllChangesOnSuccess);
+        }
+
+        public override Task<int> SaveChangesAsync(bool acceptAllChangesOnSuccess, CancellationToken cancellationToken = default)
+        {
+            AplicarEmpresaAtual();
+            return base.SaveChangesAsync(acceptAllChangesOnSuccess, cancellationToken);
         }
     }
 }

@@ -14,7 +14,7 @@ namespace ControleEstoque.Desktop.Forms
         private readonly CategoriaService _service = new();
         private readonly TextBox _txtBusca = new();
         private readonly DataGridView _grid = new();
-        private List<Categoria> _categorias = new();
+        private List<CategoriaViewModel> _categorias = new();
 
         public CategoriasControl()
         {
@@ -23,12 +23,13 @@ namespace ControleEstoque.Desktop.Forms
             BackColor = Color.FromArgb(245, 246, 248);
 
             var titulo = new Label
-            {
-                Text = "Categorias",
-                Font = new Font("Segoe UI", 16f, FontStyle.Bold),
-                AutoSize = true,
-                Location = new Point(25, 15)
-            };
+{
+    Text = "Categorias",
+    Font = UITheme.FonteTitulo,
+    ForeColor = UITheme.CorTextoPrincipal,
+    AutoSize = true,
+    Location = new Point(25, 15)
+};
             Controls.Add(titulo);
 
             _txtBusca.Location = new Point(25, 60);
@@ -76,14 +77,15 @@ namespace ControleEstoque.Desktop.Forms
 
         public void Carregar()
         {
-            _categorias = _service.GetAll(_txtBusca.Text);
-            
-            _grid.DataSource = _categorias.Select(c => new
-            {
-                c.Nome,
-                Descrição = c.Descricao ?? "-",
-                QtdProdutos = c.Produtos?.Count ?? 0
-            }).ToList();
+       _categorias = _service.ObterTodasComContagem(_txtBusca.Text);
+
+    _grid.DataSource = _categorias.Select(c => new
+    {
+        c.Id,
+        c.Nome,
+        Descricao = c.Descricao ?? "-",
+        QtdProdutos = c.QuantidadeProdutos
+    }).ToList();
 
             // Formatação do cabeçalho das colunas do DataGridView
             if (_grid.Columns["Nome"] != null)
@@ -99,7 +101,7 @@ namespace ControleEstoque.Desktop.Forms
                 coluna.SortMode = DataGridViewColumnSortMode.NotSortable;
         }
 
-        private Categoria? ObterSelecionado()
+       private CategoriaViewModel? ObterSelecionado()
         {
             if (_grid.CurrentRow == null) return null;
             var index = _grid.CurrentRow.Index;
@@ -118,7 +120,7 @@ namespace ControleEstoque.Desktop.Forms
             AbrirEdicao(categoria);
         }
 
-        private void AbrirEdicao(Categoria? categoria)
+        private void AbrirEdicao(CategoriaViewModel categoria)
         {
             using var form = new CategoriaEditForm(categoria?.Id);
             if (form.ShowDialog() == DialogResult.OK)

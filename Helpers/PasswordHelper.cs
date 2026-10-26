@@ -1,37 +1,103 @@
+using System;
 using System.Security.Cryptography;
+using System.Text.RegularExpressions;
 
-namespace ControleEstoque.Desktop.Helpers
+namespace ControleEstoque.Desktop.Helpers;
+
+public static class PasswordHelper
 {
-    // Responsável por transformar uma senha em um "hash" seguro para guardar no banco,
-    // e por conferir depois se uma senha digitada corresponde a esse hash.
-    //
-    // Usamos PBKDF2 (Password-Based Key Derivation Function 2), um algoritmo padrão da
-    // indústria para senhas — ele é "lento de propósito", o que dificulta muito um ataque
-    // de força bruta caso alguém tenha acesso ao arquivo do banco de dados.
-    public static class PasswordHelper
+    // Usado só para conferir senhas antigas (formato anterior ao BCrypt)
+    private const int SaltSize = 16;
+    private const int HashSize = 20;
+    private const int Iterations = 10000;
+
+    /// <summary>
+    /// Verifica se a senha atende aos critérios mínimos de segurança:
+    /// Mínimo de 8 caracteres, contendo letra maiúscula, minúscula, número e caractere especial.
+    /// </summary>
+    public static (bool IsValid, string Message) ValidatePasswordStrength(string password)
     {
-        private const int TamanhoSaltEmBytes = 16;
-        private const int TamanhoHashEmBytes = 32;
-        private const int Iteracoes = 100_000;
+        if (string.IsNullOrWhiteSpace(password))
+            return (false, "A senha não pode estar vazia.");
 
-        // Gera um "salt" (valor aleatório único) e o hash da senha combinado com esse salt.
-        // O salt é necessário guardar junto, pois é preciso dele para conferir a senha depois.
-        public static (string Hash, string Salt) CriarHash(string senha)
+        if (password.Length < 8)
+            return (false, "A senha deve ter no mínimo 8 caracteres.");
+
+        // O BCrypt só considera os primeiros 72 caracteres
+        if (password.Length > 72)
+            return (false, "A senha deve ter no máximo 72 caracteres.");
+
+        if (!Regex.IsMatch(password, @"[A-Z]"))
+            return (false, "A senha deve conter pelo menos uma letra maiúscula.");
+
+        if (!Regex.IsMatch(password, @"[a-z]"))
+            return (false, "A senha deve conter pelo menos uma letra minúscula.");
+
+        if (!Regex.IsMatch(password, @"[0-9]"))
+            return (false, "A senha deve conter pelo menos um número.");
+
+        if (!Regex.IsMatch(password, @"[^\p{L}\p{N}]"))
+            return (false, "A senha deve conter pelo menos um caractere especial.");
+
+        return (true, "Senha válida.");
+    }
+
+    // Gera o hash com BCrypt (o salt já fica dentro do próprio hash)
+    public static string HashPassword(string password)
+    {
+        return BCrypt.Net.BCrypt.HashPassword(password, 12);
+    }
+
+    public static bool VerifyPassword(string password, string hashGuardado)
+    {
+        if (string.IsNullOrEmpty(hashGuardado))
+            return false;
+
+        // Hash novo (BCrypt começa com "$2")
+        if (hashGuardado.StartsWith("$2"))
         {
-            var saltBytes = RandomNumberGenerator.GetBytes(TamanhoSaltEmBytes);
-            var hashBytes = Rfc2898DeriveBytes.Pbkdf2(senha, saltBytes, Iteracoes, HashAlgorithmName.SHA256, TamanhoHashEmBytes);
-
-            return (Convert.ToBase64String(hashBytes), Convert.ToBase64String(saltBytes));
+            try
+            {
+                return BCrypt.Net.BCrypt.Verify(password, hashGuardado);
+            }
+            catch (Exception)
+            {
+                return false;
+            }
         }
 
-        // Refaz o mesmo cálculo com a senha digitada e o salt guardado, e compara os resultados.
-        public static bool Verificar(string senhaDigitada, string hashArmazenado, string saltArmazenado)
-        {
-            var saltBytes = Convert.FromBase64String(saltArmazenado);
-            var hashBytes = Rfc2898DeriveBytes.Pbkdf2(senhaDigitada, saltBytes, Iteracoes, HashAlgorithmName.SHA256, TamanhoHashEmBytes);
-            var hashCalculado = Convert.ToBase64String(hashBytes);
+        // Hash antigo: ainda aceita para ninguém ficar sem acesso
+        return VerificarHashAntigo(password, hashGuardado);
+    }
 
-            return hashCalculado == hashArmazenado;
+    // Indica se o hash guardado ainda está no formato antigo e deve ser regravado com BCrypt
+    public static bool PrecisaAtualizarHash(string hashGuardado)
+    {
+        return !string.IsNullOrEmpty(hashGuardado) && !hashGuardado.StartsWith("$2");
+    }
+
+    private static bool VerificarHashAntigo(string password, string base64Hash)
+    {
+        try
+        {
+            byte[] hashBytes = Convert.FromBase64String(base64Hash);
+            if (hashBytes.Length != SaltSize + HashSize)
+                return false;
+
+            byte[] salt = new byte[SaltSize];
+            Array.Copy(hashBytes, 0, salt, 0, SaltSize);
+
+            using var pbkdf2 = new Rfc2898DeriveBytes(password, salt, Iterations, HashAlgorithmName.SHA256);
+            byte[] hash = pbkdf2.GetBytes(HashSize);
+
+            byte[] esperado = new byte[HashSize];
+            Array.Copy(hashBytes, SaltSize, esperado, 0, HashSize);
+
+            return CryptographicOperations.FixedTimeEquals(hash, esperado);
+        }
+        catch (FormatException)
+        {
+            return false;
         }
     }
 }

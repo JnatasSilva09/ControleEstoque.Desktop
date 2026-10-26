@@ -2,10 +2,13 @@ using System.ComponentModel.DataAnnotations;
 
 namespace ControleEstoque.Desktop.Models
 {
-    public class Categoria
+    public class Categoria : IEmpresaEntity
     {
         [Key]
         public int Id { get; set; }
+
+        // Empresa dona deste registro (preenchido automaticamente ao salvar)
+        public int EmpresaId { get; set; }
 
         [Required(ErrorMessage = "O nome da categoria é obrigatório.")]
         [StringLength(100, ErrorMessage = "O nome da categoria não pode ultrapassar 100 caracteres.")]

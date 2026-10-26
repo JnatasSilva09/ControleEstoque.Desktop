@@ -2,10 +2,13 @@ using System.ComponentModel.DataAnnotations;
 
 namespace ControleEstoque.Desktop.Models
 {
-    public class Fornecedor
+    public class Fornecedor : IEmpresaEntity
     {
         [Key]
         public int Id { get; set; }
+
+        // Empresa dona deste registro (preenchido automaticamente ao salvar)
+        public int EmpresaId { get; set; }
 
         [Required(ErrorMessage = "O nome do fornecedor é obrigatório.")]
         [StringLength(150, ErrorMessage = "O nome do fornecedor não pode ultrapassar 150 caracteres.")]

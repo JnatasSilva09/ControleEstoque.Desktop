@@ -1,201 +1,225 @@
 using System;
-using System.Collections.Generic;
 using System.Drawing;
 using System.Linq;
 using System.Windows.Forms;
 using ControleEstoque.Desktop.Helpers;
-using ControleEstoque.Desktop.Models;
 using ControleEstoque.Desktop.Services;
 
 namespace ControleEstoque.Desktop.Forms
 {
-    public class ProdutosControl : UserControl
+    public partial class ProdutosControl : UserControl
     {
-        private readonly ProdutoService _service = new();
-        private readonly TextBox _txtBusca = new();
+        private readonly ProdutoService _produtoService = new();
         private readonly DataGridView _grid = new();
-        private List<Produto> _produtos = new();
+        private readonly TextBox _txtBusca = new();
+        private readonly Button _btnNovo = new();
+        private readonly Button _btnEditar = new();
+        private readonly Button _btnExcluir = new();
 
         public ProdutosControl()
         {
+            // Configurações principais do Controle
             Dock = DockStyle.Fill;
             Padding = new Padding(25);
             BackColor = Color.FromArgb(245, 246, 248);
 
-            var titulo = new Label
+            // 1. Título da Tela
+            var lblTitulo = new Label
             {
-                Text = "Produtos",
-                Font = new Font("Segoe UI", 16f, FontStyle.Bold),
-                AutoSize = true,
-                Location = new Point(25, 15)
+                Text = "Gestão de Produtos",
+                Font = new Font("Segoe UI", 18, FontStyle.Bold),
+                ForeColor = Color.FromArgb(30, 41, 59),
+                Dock = DockStyle.Top,
+                Height = 40
             };
-            Controls.Add(titulo);
 
-            _txtBusca.Location = new Point(25, 60);
-            _txtBusca.Size = new Size(300, 28);
-            _txtBusca.PlaceholderText = "Pesquisar por nome ou código...";
-            _txtBusca.TextChanged += (s, e) => Carregar();
-            Controls.Add(_txtBusca);
-
-            var btnNovo = new Button
+            // 2. Barra de Ações / Pesquisa Superior
+            var pnlAcoes = new Panel
             {
-                Text = "+ Novo Produto",
-                Location = new Point(345, 58),
-                Size = new Size(150, 32),
-                BackColor = Color.FromArgb(41, 128, 185),
-                ForeColor = Color.White,
-                FlatStyle = FlatStyle.Flat
+                Dock = DockStyle.Top,
+                Height = 60,
+                Padding = new Padding(0, 10, 0, 10),
+                BackColor = Color.Transparent
             };
-            btnNovo.FlatAppearance.BorderSize = 0;
-            btnNovo.Click += (s, e) => AbrirEdicao(null);
-            Controls.Add(btnNovo);
 
-            var btnEditar = new Button
-            {
-                Text = "Editar",
-                Location = new Point(505, 58),
-                Size = new Size(100, 32)
-            };
-            btnEditar.Click += (s, e) => EditarSelecionado();
-            Controls.Add(btnEditar);
+            _txtBusca.Font = new Font("Segoe UI", 10);
+            _txtBusca.Size = new Size(260, 30);
+            _txtBusca.Location = new Point(0, 15);
+            _txtBusca.PlaceholderText = "Pesquisar por nome, código ou barras...";
+            // A cada letra digitada a lista é atualizada com o filtro
+            _txtBusca.TextChanged += (s, e) => CarregarProdutos(_txtBusca.Text);
 
-            var btnExcluir = new Button
-            {
-                Text = "Excluir",
-                Location = new Point(615, 58),
-                Size = new Size(100, 32)
-            };
-            btnExcluir.Click += (s, e) => ExcluirSelecionado();
-            Controls.Add(btnExcluir);
+            _btnNovo.Text = "+ Novo Produto";
+            _btnNovo.Font = new Font("Segoe UI", 9, FontStyle.Bold);
+            _btnNovo.BackColor = Color.FromArgb(16, 185, 129); // Verde Destaque de Sucesso
+            _btnNovo.ForeColor = Color.White;
+            _btnNovo.FlatStyle = FlatStyle.Flat;
+            _btnNovo.FlatAppearance.BorderSize = 0;
+            _btnNovo.Size = new Size(130, 32);
+            _btnNovo.Location = new Point(275, 14);
+            _btnNovo.Cursor = Cursors.Hand;
+            _btnNovo.Click += (s, e) => AbrirEdicao(null);
 
-            _grid.Location = new Point(25, 105);
-            _grid.Size = new Size(1080, 480);
-            _grid.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right | AnchorStyles.Bottom;
-            _grid.ReadOnly = true;
-            _grid.AllowUserToAddRows = false;
-            _grid.AllowUserToDeleteRows = false;
+            _btnEditar.Text = "Editar";
+            _btnEditar.Font = new Font("Segoe UI", 9, FontStyle.Bold);
+            _btnEditar.BackColor = Color.FromArgb(59, 130, 246); // Azul
+            _btnEditar.ForeColor = Color.White;
+            _btnEditar.FlatStyle = FlatStyle.Flat;
+            _btnEditar.FlatAppearance.BorderSize = 0;
+            _btnEditar.Size = new Size(90, 32);
+            _btnEditar.Location = new Point(415, 14);
+            _btnEditar.Cursor = Cursors.Hand;
+            _btnEditar.Click += (s, e) => EditarSelecionado();
+
+            _btnExcluir.Text = "Excluir";
+            _btnExcluir.Font = new Font("Segoe UI", 9, FontStyle.Bold);
+            _btnExcluir.BackColor = Color.FromArgb(239, 68, 68); // Vermelho
+            _btnExcluir.ForeColor = Color.White;
+            _btnExcluir.FlatStyle = FlatStyle.Flat;
+            _btnExcluir.FlatAppearance.BorderSize = 0;
+            _btnExcluir.Size = new Size(90, 32);
+            _btnExcluir.Location = new Point(515, 14);
+            _btnExcluir.Cursor = Cursors.Hand;
+            _btnExcluir.Click += (s, e) => ExcluirSelecionado();
+
+            pnlAcoes.Controls.Add(_txtBusca);
+            pnlAcoes.Controls.Add(_btnNovo);
+            pnlAcoes.Controls.Add(_btnEditar);
+            pnlAcoes.Controls.Add(_btnExcluir);
+
+            // 3. Configuração da Tabela de Dados (DataGridView)
+            ConfigurarGrid();
+            _grid.CellDoubleClick += (s, e) => { if (e.RowIndex >= 0) EditarSelecionado(); };
+
+            // Adicionar componentes ao UserControl (ordem inversa do Dock)
+            Controls.Add(_grid);
+            Controls.Add(pnlAcoes);
+            Controls.Add(lblTitulo);
+
+            CarregarProdutos();
+        }
+
+        private void ConfigurarGrid()
+        {
+            _grid.Dock = DockStyle.Fill;
+            _grid.BackgroundColor = Color.White;
+            _grid.BorderStyle = BorderStyle.None;
+            _grid.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill;
+            _grid.RowHeadersVisible = false;
             _grid.SelectionMode = DataGridViewSelectionMode.FullRowSelect;
             _grid.MultiSelect = false;
-            _grid.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill;
-            _grid.CellDoubleClick += (s, e) =>
-            {
-                if (e.RowIndex >= 0) EditarSelecionado();
-            };
-            _grid.CellFormatting += Grid_CellFormatting;
-            Controls.Add(_grid);
+            _grid.AllowUserToAddRows = false;
+            _grid.ReadOnly = true;
+            _grid.EnableHeadersVisualStyles = false;
 
-            UiHelper.EstilizarGrid(_grid);
+            // Cabeçalho Corporativo (Azul Escuro)
+            _grid.ColumnHeadersDefaultCellStyle.BackColor = Color.FromArgb(30, 41, 59);
+            _grid.ColumnHeadersDefaultCellStyle.ForeColor = Color.White;
+            _grid.ColumnHeadersDefaultCellStyle.Font = new Font("Segoe UI", 10, FontStyle.Bold);
+            _grid.ColumnHeadersHeight = 35;
 
-            Load += (s, e) => Carregar();
+            // Linhas e Seleção
+            _grid.DefaultCellStyle.Font = new Font("Segoe UI", 9.5f);
+            _grid.DefaultCellStyle.SelectionBackColor = Color.FromArgb(226, 232, 240);
+            _grid.DefaultCellStyle.SelectionForeColor = Color.Black;
+            _grid.RowTemplate.Height = 30;
         }
 
-        private void Grid_CellFormatting(object? sender, DataGridViewCellFormattingEventArgs e)
-        {
-            if (e.RowIndex < 0 || e.RowIndex >= _grid.Rows.Count) return;
-
-            var row = _grid.Rows[e.RowIndex];
-            if (row.Cells["Id"].Value is int produtoId)
-            {
-                var produto = _produtos.FirstOrDefault(p => p.Id == produtoId);
-                if (produto != null && e.CellStyle != null)
-                {
-                    if (produto.Quantidade <= 0)
-                        e.CellStyle.ForeColor = Color.FromArgb(192, 57, 43);
-                    else if (produto.Quantidade <= produto.EstoqueMinimo)
-                        e.CellStyle.ForeColor = Color.FromArgb(230, 126, 34);
-                }
-            }
-        }
-
-        public void Carregar()
+        private void CarregarProdutos(string filtro = "")
         {
             try
             {
-                _produtos = _service.GetAll(_txtBusca.Text);
+                // Mostra só o que interessa (o nome da categoria, e não o objeto inteiro)
+                var produtos = _produtoService.GetAll(filtro)
+                    .Select(p => new
+                    {
+                        p.Id,
+                        Código = p.Codigo,
+                        p.Nome,
+                        Categoria = p.Categoria?.Nome ?? "-",
+                        Fornecedor = p.Fornecedor?.Nome ?? "-",
+                        Un = p.UnidadeMedida,
+                        Custo = FormatHelper.Moeda(p.PrecoCusto),
+                        Venda = FormatHelper.Moeda(p.PrecoVenda),
+                        Estoque = p.Quantidade,
+                        Mínimo = p.EstoqueMinimo,
+                        Situação = p.SituacaoEstoque
+                    })
+                    .ToList();
 
-                _grid.DataSource = _produtos.Select(p => new
-                {
-                    p.Id,
-                    p.Codigo,
-                    p.Nome,
-                    Categoria = p.Categoria?.Nome ?? "-",
-                    Fornecedor = p.Fornecedor?.Nome ?? "-",
-                    Quantidade = p.Quantidade,
-                    Minimo = p.EstoqueMinimo,
-                    PrecoVenda = FormatHelper.Moeda(p.PrecoVenda),
-                    Situacao = p.SituacaoEstoque
-                }).ToList();
+                _grid.DataSource = null;
+                _grid.DataSource = produtos;
 
-                // Oculta a coluna de ID do usuário final
+                // O Id é só para uso interno
                 if (_grid.Columns["Id"] != null)
-            // CORRETO
-if (_grid.Columns["Nome"] is DataGridViewColumn col)
-{
-    col.HeaderText = "Nome do Produto";
-}
+                {
+                    _grid.Columns["Id"]!.Visible = false;
+                }
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"Erro ao carregar lista de produtos: {ex.Message}", "Erro", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                LogHelper.Erro(ex, "Carregar produtos");
+                MessageBox.Show($"Erro ao carregar os produtos: {ex.Message}", "Erro", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         }
 
-        private Produto? ObterSelecionado()
+        private int? ObterIdSelecionado()
         {
-            if (_grid.CurrentRow == null) return null;
-
-            if (_grid.CurrentRow.Cells["Id"].Value is int id)
+            if (_grid.CurrentRow?.Cells["Id"].Value is int id)
             {
-                return _produtos.FirstOrDefault(p => p.Id == id);
+                return id;
             }
-
             return null;
+        }
+
+        private void AbrirEdicao(int? produtoId)
+        {
+            using (var form = new ProdutoEditForm(produtoId))
+            {
+                if (form.ShowDialog() == DialogResult.OK)
+                {
+                    CarregarProdutos(_txtBusca.Text); // Atualiza a tabela com o registro salvo
+                }
+            }
         }
 
         private void EditarSelecionado()
         {
-            var produto = ObterSelecionado();
-            if (produto == null)
+            var id = ObterIdSelecionado();
+            if (id == null)
             {
                 MessageBox.Show("Selecione um produto na lista.", "Atenção", MessageBoxButtons.OK, MessageBoxIcon.Information);
                 return;
             }
-            AbrirEdicao(produto);
-        }
 
-        private void AbrirEdicao(Produto? produto)
-        {
-            using var form = new ProdutoEditForm(produto?.Id);
-            if (form.ShowDialog() == DialogResult.OK)
-            {
-                Carregar();
-            }
+            AbrirEdicao(id);
         }
 
         private void ExcluirSelecionado()
         {
-            var produto = ObterSelecionado();
-            if (produto == null)
+            var id = ObterIdSelecionado();
+            if (id == null)
             {
                 MessageBox.Show("Selecione um produto na lista.", "Atenção", MessageBoxButtons.OK, MessageBoxIcon.Information);
                 return;
             }
 
+            var nome = _grid.CurrentRow?.Cells["Nome"].Value?.ToString();
             var confirmar = MessageBox.Show(
-                $"Deseja realmente excluir o produto \"{produto.Nome}\"?\nEsta ação também remove o histórico de movimentações dele.",
-                "Confirmar exclusão", MessageBoxButtons.YesNo, MessageBoxIcon.Warning);
+                $"Deseja excluir o produto \"{nome}\"?\n\nEle deixará de aparecer na lista, mas o histórico de movimentações será mantido.",
+                "Confirmar exclusão", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
 
-            if (confirmar == DialogResult.Yes)
+            if (confirmar != DialogResult.Yes) return;
+
+            try
             {
-                try
-                {
-                    _service.Delete(produto.Id);
-                    Carregar();
-                }
-                catch (Exception ex)
-                {
-                    MessageBox.Show($"Erro ao excluir o produto: {ex.Message}", "Erro", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                }
+                _produtoService.Delete(id.Value);
+                CarregarProdutos(_txtBusca.Text);
+            }
+            catch (Exception ex)
+            {
+                LogHelper.Erro(ex, "Excluir produto");
+                MessageBox.Show($"Não foi possível excluir o produto: {ex.Message}", "Erro", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         }
     }
