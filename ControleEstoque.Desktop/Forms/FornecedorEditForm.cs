@@ -8,7 +8,7 @@ namespace ControleEstoque.Desktop.Forms
 {
     public class FornecedorEditForm : Form
     {
-        private readonly FornecedorService _service = new();
+        private readonly FornecedorService _service;
         private readonly int? _fornecedorId;
 
         private readonly TextBox _txtNome = new();
@@ -19,8 +19,9 @@ namespace ControleEstoque.Desktop.Forms
         private readonly TextBox _txtEndereco = new();
         private readonly TextBox _txtObservacoes = new() { Multiline = true, ScrollBars = ScrollBars.Vertical };
 
-        public FornecedorEditForm(int? fornecedorId)
+        public FornecedorEditForm(Servicos servicos, int? fornecedorId)
         {
+            _service = servicos.Fornecedores;
             _fornecedorId = fornecedorId;
 
             Text = fornecedorId == null ? "Novo Fornecedor" : "Editar Fornecedor";

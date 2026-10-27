@@ -9,7 +9,7 @@ namespace ControleEstoque.Desktop.Forms
 {
     public class LoginForm : Form
     {
-    private readonly AuthService _service = new();
+    private readonly AuthService _service;
 
         private readonly TextBox _txtLogin = new();
         private readonly TextBox _txtSenha = new() { PasswordChar = '●' };
@@ -23,8 +23,12 @@ namespace ControleEstoque.Desktop.Forms
 
         public Usuario? UsuarioAutenticado { get; private set; }
 
-        public LoginForm()
+        private readonly Servicos _servicos;
+
+        public LoginForm(Servicos servicos)
         {
+            _servicos = servicos;
+            _service = servicos.Autenticacao;
             Text = "Controle de Estoque — Login";
             Width = 380;
             Height = 370;
@@ -99,7 +103,7 @@ btnCriarConta.FlatAppearance.BorderSize = 1;
 btnCriarConta.FlatAppearance.BorderColor = Color.FromArgb(209, 213, 219);
 btnCriarConta.Click += (s, e) =>
 {
-    var registerForm = new RegisterForm();
+    var registerForm = new RegisterForm(_servicos);
     registerForm.ShowDialog();
 };
 Controls.Add(btnCriarConta);

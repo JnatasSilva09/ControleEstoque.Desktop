@@ -15,12 +15,19 @@ namespace ControleEstoque.Desktop.Services
 
     public class MovimentacaoService
     {
+        private readonly IAppDbContextFactory _fabrica;
+
+        public MovimentacaoService(IAppDbContextFactory fabrica)
+        {
+            _fabrica = fabrica;
+        }
+
         public void RegistrarEntrada(int produtoId, int quantidade, decimal? valorCusto, string? fornecedorNome, DateTime data)
         {
             if (quantidade <= 0)
                 throw new ArgumentException("A quantidade de entrada deve ser maior que zero.");
 
-            using var db = new AppDbContext();
+            using var db = _fabrica.Criar();
             using var transaction = db.Database.BeginTransaction();
 
             try
@@ -67,7 +74,7 @@ namespace ControleEstoque.Desktop.Services
             if (quantidade <= 0)
                 throw new ArgumentException("A quantidade de saída deve ser maior que zero.");
 
-            using var db = new AppDbContext();
+            using var db = _fabrica.Criar();
             using var transaction = db.Database.BeginTransaction();
 
             try
@@ -111,7 +118,7 @@ namespace ControleEstoque.Desktop.Services
 
         public List<Movimentacao> GetHistorico(string? produtoFiltro = null, DateTime? inicio = null, DateTime? fim = null)
         {
-            using var db = new AppDbContext();
+            using var db = _fabrica.Criar();
             var query = db.Movimentacoes
                 .Include(m => m.Produto)
                 .AsNoTracking()
@@ -141,7 +148,7 @@ namespace ControleEstoque.Desktop.Services
 
         public int TotalEntradas()
         {
-            using var db = new AppDbContext();
+            using var db = _fabrica.Criar();
             return db.Movimentacoes
                 .Where(m => m.Tipo == TipoMovimentacao.Entrada)
                 .Sum(m => (int?)m.Quantidade) ?? 0;
@@ -149,7 +156,7 @@ namespace ControleEstoque.Desktop.Services
 
        public int TotalSaidas()
         {
-            using var db = new AppDbContext();
+            using var db = _fabrica.Criar();
             return db.Movimentacoes
                      .Where(m => m.Tipo == TipoMovimentacao.Saida)
                      .Sum(m => (int?)m.Quantidade) ?? 0;
@@ -160,7 +167,7 @@ namespace ControleEstoque.Desktop.Services
         /// </summary>
         public List<Movimentacao> ObterMovimentacoes()
         {
-            using var db = new AppDbContext();
+            using var db = _fabrica.Criar();
             return db.Movimentacoes.ToList();
         }
     } // <-- Esta é a chave que fecha a classe MovimentacaoService

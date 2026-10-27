@@ -9,9 +9,16 @@ namespace ControleEstoque.Desktop.Services
 {
     public class FornecedorService
     {
+        private readonly IAppDbContextFactory _fabrica;
+
+        public FornecedorService(IAppDbContextFactory fabrica)
+        {
+            _fabrica = fabrica;
+        }
+
         public List<Fornecedor> GetAll(string? filtro = null)
         {
-            using var db = new AppDbContext();
+            using var db = _fabrica.Criar();
             var query = db.Fornecedores.AsNoTracking().AsQueryable();
 
             if (!string.IsNullOrWhiteSpace(filtro))
@@ -25,12 +32,12 @@ namespace ControleEstoque.Desktop.Services
 
         public Fornecedor? GetById(int id)
         {
-            using var db = new AppDbContext();
+            using var db = _fabrica.Criar();
             return db.Fornecedores.AsNoTracking().FirstOrDefault(f => f.Id == id);
         }
 public void Excluir(int id)
 {
-    using var db = new AppDbContext();
+    using var db = _fabrica.Criar();
 
     // Validação de segurança: verifica se existem produtos associados a este fornecedor
     bool possuiProdutos = db.Produtos.Any(p => p.FornecedorId == id);
@@ -49,7 +56,7 @@ public void Excluir(int id)
 }
         public void Add(Fornecedor fornecedor)
         {
-            using var db = new AppDbContext();
+            using var db = _fabrica.Criar();
 
             fornecedor.Nome = fornecedor.Nome.Trim();
 
@@ -66,7 +73,7 @@ public void Excluir(int id)
 
         public void Update(Fornecedor fornecedor)
         {
-            using var db = new AppDbContext();
+            using var db = _fabrica.Criar();
 
             fornecedor.Nome = fornecedor.Nome.Trim();
 
@@ -83,7 +90,7 @@ public void Excluir(int id)
 
         public void Delete(int id)
         {
-            using var db = new AppDbContext();
+            using var db = _fabrica.Criar();
             var fornecedor = db.Fornecedores.FirstOrDefault(f => f.Id == id);
 
             if (fornecedor != null)

@@ -10,16 +10,25 @@ namespace ControleEstoque.Desktop.Services
 {
     public class UsuarioService
     {
-        // Só enxerga os usuários da própria empresa
-        private static IQueryable<Usuario> UsuariosDaEmpresa(AppDbContext db)
+        private readonly IAppDbContextFactory _fabrica;
+        private readonly IContextoDoTenant _tenant;
+
+        public UsuarioService(IAppDbContextFactory fabrica, IContextoDoTenant tenant)
         {
-            var empresaId = Sessao.EmpresaId;
+            _fabrica = fabrica;
+            _tenant = tenant;
+        }
+
+        // Só enxerga os usuários da própria empresa
+        private IQueryable<Usuario> UsuariosDaEmpresa(AppDbContext db)
+        {
+            var empresaId = _tenant.EmpresaId;
             return db.Usuarios.Where(u => u.EmpresaId == empresaId);
         }
 
         public List<Usuario> GetAll(string? filtro = null)
         {
-            using var db = new AppDbContext();
+            using var db = _fabrica.Criar();
             var query = UsuariosDaEmpresa(db).AsNoTracking();
 
             if (!string.IsNullOrWhiteSpace(filtro))
@@ -33,7 +42,7 @@ namespace ControleEstoque.Desktop.Services
 
         public Usuario? GetById(int id)
         {
-            using var db = new AppDbContext();
+            using var db = _fabrica.Criar();
             return UsuariosDaEmpresa(db).AsNoTracking().FirstOrDefault(u => u.Id == id);
         }
 
@@ -46,7 +55,7 @@ namespace ControleEstoque.Desktop.Services
             if (!senhaValida)
                 throw new InvalidOperationException(mensagem);
 
-            using var db = new AppDbContext();
+            using var db = _fabrica.Criar();
 
             // O login é único no sistema todo, porque é com ele que a pessoa entra
             var loginLimpo = login.Trim();
@@ -63,7 +72,7 @@ namespace ControleEstoque.Desktop.Services
                 Perfil = perfil,
                 Ativo = true,
                 DataCadastro = DateTime.Now,
-                EmpresaId = Sessao.EmpresaId,
+                EmpresaId = _tenant.EmpresaId,
                 PrecisaTrocarSenha = true // a senha definida pelo administrador é provisória
             });
 
@@ -72,7 +81,7 @@ namespace ControleEstoque.Desktop.Services
 
         public void AtualizarDadosBasicos(int id, string nome, string login, PerfilUsuario perfil, bool ativo)
         {
-            using var db = new AppDbContext();
+            using var db = _fabrica.Criar();
             var usuario = UsuariosDaEmpresa(db).FirstOrDefault(u => u.Id == id)
                 ?? throw new InvalidOperationException("Usuário não encontrado.");
 
@@ -111,21 +120,21 @@ namespace ControleEstoque.Desktop.Services
             if (!senhaValida)
                 throw new InvalidOperationException(mensagem);
 
-            using var db = new AppDbContext();
+            using var db = _fabrica.Criar();
             var usuario = UsuariosDaEmpresa(db).FirstOrDefault(u => u.Id == id)
                 ?? throw new InvalidOperationException("Usuário não encontrado.");
 
             usuario.SenhaHash = PasswordHelper.HashPassword(novaSenha);
 
             // Se o administrador redefiniu a senha de outra pessoa, ela precisa trocar no próximo login
-            usuario.PrecisaTrocarSenha = id != Sessao.UsuarioId;
+            usuario.PrecisaTrocarSenha = id != _tenant.UsuarioId;
 
             db.SaveChanges();
         }
 
         public void Delete(int id)
         {
-            using var db = new AppDbContext();
+            using var db = _fabrica.Criar();
 
             var usuario = UsuariosDaEmpresa(db).FirstOrDefault(u => u.Id == id);
             if (usuario == null) return;

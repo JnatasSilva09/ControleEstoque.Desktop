@@ -6,15 +6,22 @@ namespace ControleEstoque.Desktop.Services
 {
     public class CategoriaService
     {
+        private readonly IAppDbContextFactory _fabrica;
+
+        public CategoriaService(IAppDbContextFactory fabrica)
+        {
+            _fabrica = fabrica;
+        }
+
         public List<Categoria> GetAll()
         {
-            using var db = new AppDbContext();
+            using var db = _fabrica.Criar();
             return db.Categorias.AsNoTracking().ToList();
         }
 
         public List<CategoriaViewModel> ObterTodasComContagem(string? filtro = null)
         {
-            using var db = new AppDbContext();
+            using var db = _fabrica.Criar();
             var query = db.Categorias.AsNoTracking().AsQueryable();
 
             if (!string.IsNullOrWhiteSpace(filtro))
@@ -36,7 +43,7 @@ namespace ControleEstoque.Desktop.Services
     }
 public void Excluir(int id)
 {
-    using var db = new AppDbContext();
+    using var db = _fabrica.Criar();
 
     // Validação de segurança: verifica se existem produtos associados a esta categoria
     bool possuiProdutos = db.Produtos.Any(p => p.CategoriaId == id);
@@ -55,13 +62,13 @@ public void Excluir(int id)
 }
         public Categoria? GetById(int id)
         {
-            using var db = new AppDbContext();
+            using var db = _fabrica.Criar();
             return db.Categorias.AsNoTracking().FirstOrDefault(c => c.Id == id);
         }
 
         public void Add(Categoria categoria)
         {
-            using var db = new AppDbContext();
+            using var db = _fabrica.Criar();
 
             categoria.Nome = categoria.Nome.Trim();
 
@@ -78,7 +85,7 @@ public void Excluir(int id)
 
         public void Update(Categoria categoria)
         {
-            using var db = new AppDbContext();
+            using var db = _fabrica.Criar();
 
             categoria.Nome = categoria.Nome.Trim();
 
@@ -95,7 +102,7 @@ public void Excluir(int id)
 
         public void Delete(int id)
         {
-            using var db = new AppDbContext();
+            using var db = _fabrica.Criar();
             var categoria = db.Categorias.FirstOrDefault(c => c.Id == id);
 
             if (categoria != null)

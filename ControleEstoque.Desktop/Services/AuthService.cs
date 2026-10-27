@@ -9,9 +9,16 @@ namespace ControleEstoque.Desktop.Services
 {
     public class AuthService
     {
+        private readonly IAppDbContextFactory _fabrica;
+
+        public AuthService(IAppDbContextFactory fabrica)
+        {
+            _fabrica = fabrica;
+        }
+
         public bool RegistrarNovaEmpresa(string nomeEmpresa, string login, string senha)
         {
-            using var db = new AppDbContext();
+            using var db = _fabrica.Criar();
 
             var loginLimpo = login.Trim();
             if (db.Usuarios.Any(u => u.Login.ToLower() == loginLimpo.ToLower()))
@@ -54,7 +61,7 @@ namespace ControleEstoque.Desktop.Services
 
         public Usuario? Autenticar(string login, string senha)
         {
-            using var db = new AppDbContext();
+            using var db = _fabrica.Criar();
 
             // Procura o usuário pelo login
             var loginLimpo = login.Trim();
@@ -90,7 +97,7 @@ namespace ControleEstoque.Desktop.Services
             if (!senhaValida)
                 throw new InvalidOperationException(mensagem);
 
-            using var db = new AppDbContext();
+            using var db = _fabrica.Criar();
             var usuario = db.Usuarios.Find(usuarioId)
                 ?? throw new InvalidOperationException("Usuário não encontrado.");
 

@@ -30,6 +30,11 @@ namespace ControleEstoque.Desktop
                     LogHelper.Erro(ex, "Erro fatal");
             };
 
+            // Monta uma vez só o que as telas e os serviços vão usar
+            var tenant = new ContextoDoTenantDesktop();
+            var fabrica = new AppDbContextFactory(tenant);
+            var servicos = new Servicos(fabrica, tenant);
+
             try
             {
                 // Garante que o banco de dados e todas as tabelas (incluindo Empresas) são criados automaticamente
@@ -38,10 +43,10 @@ namespace ControleEstoque.Desktop
                 // Se já existe um banco, guarda uma cópia antes de mexer em qualquer coisa
                 if (bancoJaExistia)
                 {
-                    BackupService.FazerBackupAntesDeAtualizar();
+                    servicos.Backup.FazerBackupAntesDeAtualizar();
                 }
 
-                using (var context = new AppDbContext())
+                using (var context = fabrica.Criar())
                 {
                     context.Database.EnsureCreated();
 
@@ -52,7 +57,7 @@ namespace ControleEstoque.Desktop
                     }
                 }
 
-                BackupService.FazerBackupAutomatico();
+                servicos.Backup.FazerBackupAutomatico();
             }
             catch (Exception ex)
             {
@@ -65,19 +70,19 @@ namespace ControleEstoque.Desktop
             // Repete login -> sistema enquanto o usuário escolher "Sair" (voltar para o login)
             while (true)
             {
-                var loginForm = new LoginForm();
+                var loginForm = new LoginForm(servicos);
                 if (loginForm.ShowDialog() != DialogResult.OK || loginForm.UsuarioAutenticado == null)
                 {
                     break;
                 }
 
-                Sessao.Iniciar(loginForm.UsuarioAutenticado);
+                tenant.Iniciar(loginForm.UsuarioAutenticado);
 
-                var mainForm = new MainForm(loginForm.UsuarioAutenticado);
+                var mainForm = new MainForm(servicos, loginForm.UsuarioAutenticado);
                 Application.Run(mainForm);
 
                 bool voltarParaLogin = mainForm.SolicitouLogout;
-                Sessao.Encerrar();
+                tenant.Encerrar();
 
                 if (!voltarParaLogin)
                 {

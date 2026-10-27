@@ -11,7 +11,7 @@ namespace ControleEstoque.Desktop.Forms
 {
     public class UsuariosControl : UserControl
     {
-        private readonly UsuarioService _service = new();
+        private readonly UsuarioService _service;
         private readonly Usuario _usuarioLogado;
 
         private readonly TextBox _txtBusca = new();
@@ -19,8 +19,12 @@ namespace ControleEstoque.Desktop.Forms
       private readonly System.Windows.Forms.Timer _timerBusca = new() { Interval = 300 };
         private List<Usuario> _usuarios = new();
 
-        public UsuariosControl(Usuario usuarioLogado)
+        private readonly Servicos _servicos;
+
+        public UsuariosControl(Servicos servicos, Usuario usuarioLogado)
         {
+            _servicos = servicos;
+            _service = servicos.Usuarios;
             _usuarioLogado = usuarioLogado;
 
             Dock = DockStyle.Fill;
@@ -151,7 +155,7 @@ namespace ControleEstoque.Desktop.Forms
 
         private void AbrirEdicao(Usuario? usuario)
         {
-            using var form = new UsuarioEditForm(usuario?.Id);
+            using var form = new UsuarioEditForm(_servicos, usuario?.Id);
             if (form.ShowDialog() == DialogResult.OK)
             {
                 Carregar();

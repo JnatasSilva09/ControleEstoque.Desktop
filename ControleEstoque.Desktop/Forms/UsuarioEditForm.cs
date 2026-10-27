@@ -8,7 +8,7 @@ namespace ControleEstoque.Desktop.Forms
 {
     public class UsuarioEditForm : Form
     {
-        private readonly UsuarioService _service = new();
+        private readonly UsuarioService _service;
         private readonly int? _usuarioId;
 
         private readonly TextBox _txtNome = new();
@@ -19,8 +19,9 @@ namespace ControleEstoque.Desktop.Forms
         private readonly TextBox _txtConfirmarSenha = new() { PasswordChar = '●' };
         private readonly Label _lblSenha = new();
 
-        public UsuarioEditForm(int? usuarioId)
+        public UsuarioEditForm(Servicos servicos, int? usuarioId)
         {
+            _service = servicos.Usuarios;
             _usuarioId = usuarioId;
 
             Text = usuarioId == null ? "Novo Usuário" : "Editar Usuário";

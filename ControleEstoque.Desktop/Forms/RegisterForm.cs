@@ -8,15 +8,16 @@ namespace ControleEstoque.Desktop.Forms
 {
     public partial class RegisterForm : Form
     {
-        private readonly AuthService _authService = new();
+        private readonly AuthService _authService;
 
         private readonly TextBox _txtNomeEmpresa = new() { PlaceholderText = "Nome da sua Empresa" };
         private readonly TextBox _txtEmail = new() { PlaceholderText = "Seu E-mail" };
         private readonly TextBox _txtSenha = new() { PlaceholderText = "Sua Senha", PasswordChar = '*' };
         private readonly Button _btnCadastrar = new();
 
-        public RegisterForm()
+        public RegisterForm(Servicos servicos)
         {
+            _authService = servicos.Autenticacao;
             Text = "Criar Conta - Teste Grátis";
             Size = new Size(400, 420);
             StartPosition = FormStartPosition.CenterScreen;

@@ -9,9 +9,9 @@ namespace ControleEstoque.Desktop.Forms
 {
     public class ProdutoEditForm : Form
     {
-        private readonly ProdutoService _produtoService = new();
-        private readonly CategoriaService _categoriaService = new();
-        private readonly FornecedorService _fornecedorService = new();
+        private readonly ProdutoService _produtoService;
+        private readonly CategoriaService _categoriaService;
+        private readonly FornecedorService _fornecedorService;
         private readonly int? _produtoId;
 
         private readonly Panel _pnlConteudo = new();
@@ -29,8 +29,11 @@ namespace ControleEstoque.Desktop.Forms
         private readonly ComboBox _cboCategoria = new();
         private readonly ComboBox _cboFornecedor = new();
 
-        public ProdutoEditForm(int? produtoId)
+        public ProdutoEditForm(Servicos servicos, int? produtoId)
         {
+            _produtoService = servicos.Produtos;
+            _categoriaService = servicos.Categorias;
+            _fornecedorService = servicos.Fornecedores;
             _produtoId = produtoId;
 
             Text = produtoId == null ? "Novo Produto" : "Editar Produto";
@@ -190,7 +193,6 @@ namespace ControleEstoque.Desktop.Forms
                 _numPrecoCusto.Value = produto.PrecoCusto;
                 _numPrecoVenda.Value = produto.PrecoVenda;
                 _numQuantidade.Value = produto.Quantidade;
-                _numQuantidade.Enabled = false; // estoque só muda por entrada/saída
                 _numEstoqueMinimo.Value = produto.EstoqueMinimo;
                 _cboCategoria.SelectedValue = produto.CategoriaId ?? 0;
                 _cboFornecedor.SelectedValue = produto.FornecedorId ?? 0;

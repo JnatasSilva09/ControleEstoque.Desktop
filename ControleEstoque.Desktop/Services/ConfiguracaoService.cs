@@ -6,11 +6,18 @@ namespace ControleEstoque.Desktop.Services
 {
     public class ConfiguracaoService
     {
+        private readonly IAppDbContextFactory _fabrica;
+
+        public ConfiguracaoService(IAppDbContextFactory fabrica)
+        {
+            _fabrica = fabrica;
+        }
+
         // Como só existe UMA configuração de empresa, sempre trabalhamos com o primeiro registro.
         // Se ainda não existir nenhum, criamos um vazio automaticamente.
         public Configuracao GetConfiguracao()
         {
-            using var db = new AppDbContext();
+            using var db = _fabrica.Criar();
             var config = db.Configuracoes.FirstOrDefault();
 
             if (config == null)
@@ -25,7 +32,7 @@ namespace ControleEstoque.Desktop.Services
 
         public void Salvar(Configuracao configuracao)
         {
-            using var db = new AppDbContext();
+            using var db = _fabrica.Criar();
             
             // Busca o registro existente pelo ID ou pega o primeiro registro que houver
             var existente = db.Configuracoes.FirstOrDefault(c => c.Id == configuracao.Id) ?? db.Configuracoes.FirstOrDefault();

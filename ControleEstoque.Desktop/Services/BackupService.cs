@@ -7,14 +7,21 @@ using ControleEstoque.Desktop.Helpers;
 
 namespace ControleEstoque.Desktop.Services
 {
-    public static class BackupService
+    public class BackupService
     {
         private const int QuantidadeBackupsAutomaticos = 10;
+
+        private readonly IAppDbContextFactory _fabrica;
+
+        public BackupService(IAppDbContextFactory fabrica)
+        {
+            _fabrica = fabrica;
+        }
 
         public static string PastaBackups => Path.Combine(AppDbContext.PastaDados, "backups");
 
         // Salva uma cópia do banco no caminho informado.
-        public static void SalvarCopia(string destino)
+        public void SalvarCopia(string destino)
         {
             if (File.Exists(destino))
                 File.Delete(destino);
@@ -22,7 +29,7 @@ namespace ControleEstoque.Desktop.Services
             try
             {
                 // VACUUM INTO gera uma cópia consistente, mesmo com o banco em uso
-                using var db = new AppDbContext();
+                using var db = _fabrica.Criar();
                 var conexao = db.Database.GetDbConnection();
                 conexao.Open();
                 try
@@ -45,14 +52,14 @@ namespace ControleEstoque.Desktop.Services
         }
 
         // Backup feito antes de mexer na estrutura do banco
-        public static void FazerBackupAntesDeAtualizar()
+        public void FazerBackupAntesDeAtualizar()
         {
             Directory.CreateDirectory(PastaBackups);
             SalvarCopia(Path.Combine(PastaBackups, $"antes-de-atualizar-{DateTime.Now:yyyyMMdd-HHmmss}.db"));
         }
 
         // Um backup por dia, guardando só os mais recentes
-        public static void FazerBackupAutomatico()
+        public void FazerBackupAutomatico()
         {
             try
             {

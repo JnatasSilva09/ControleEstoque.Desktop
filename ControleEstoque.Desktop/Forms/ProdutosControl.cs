@@ -9,15 +9,19 @@ namespace ControleEstoque.Desktop.Forms
 {
     public partial class ProdutosControl : UserControl
     {
-        private readonly ProdutoService _produtoService = new();
+        private readonly ProdutoService _produtoService;
         private readonly DataGridView _grid = new();
         private readonly TextBox _txtBusca = new();
         private readonly Button _btnNovo = new();
         private readonly Button _btnEditar = new();
         private readonly Button _btnExcluir = new();
 
-        public ProdutosControl()
+        private readonly Servicos _servicos;
+
+        public ProdutosControl(Servicos servicos)
         {
+            _servicos = servicos;
+            _produtoService = servicos.Produtos;
             // Configurações principais do Controle
             Dock = DockStyle.Fill;
             Padding = new Padding(25);
@@ -174,7 +178,7 @@ namespace ControleEstoque.Desktop.Forms
 
         private void AbrirEdicao(int? produtoId)
         {
-            using (var form = new ProdutoEditForm(produtoId))
+            using (var form = new ProdutoEditForm(_servicos, produtoId))
             {
                 if (form.ShowDialog() == DialogResult.OK)
                 {

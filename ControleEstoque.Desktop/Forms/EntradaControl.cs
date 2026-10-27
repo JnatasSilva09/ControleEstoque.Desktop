@@ -8,8 +8,8 @@ namespace ControleEstoque.Desktop.Forms
 {
     public class EntradaControl : UserControl
     {
-        private readonly ProdutoService _produtoService = new();
-        private readonly MovimentacaoService _movimentacaoService = new();
+        private readonly ProdutoService _produtoService;
+        private readonly MovimentacaoService _movimentacaoService;
 
         private readonly ComboBox _cboProduto = new();
         private readonly Label _lblEstoqueAtual = new();
@@ -18,8 +18,10 @@ namespace ControleEstoque.Desktop.Forms
         private readonly TextBox _txtFornecedor = new();
         private readonly DateTimePicker _dtData = new();
 
-        public EntradaControl()
+        public EntradaControl(Servicos servicos)
         {
+            _produtoService = servicos.Produtos;
+            _movimentacaoService = servicos.Movimentacoes;
             Dock = DockStyle.Fill;
             Padding = new Padding(25);
             BackColor = Color.FromArgb(245, 246, 248);

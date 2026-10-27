@@ -13,11 +13,11 @@ namespace ControleEstoque.Desktop.Forms
         // Declaração do serviço de movimentações
         private readonly MovimentacaoService _movimentacaoService;
 
-        public RelatoriosControl()
+        public RelatoriosControl(Servicos servicos)
         {
             
             // Instancia o serviço para podermos usar nas consultas
-            _movimentacaoService = new MovimentacaoService();
+            _movimentacaoService = servicos.Movimentacoes;
         }
 
         private void BtnExportarCsv_Click(object sender, EventArgs e)

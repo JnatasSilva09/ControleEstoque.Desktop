@@ -9,23 +9,24 @@ using Xunit;
 
 namespace ControleEstoque.Testes;
 
-// Cada teste ganha um banco SQLite novo em arquivo temporário (nunca toca no estoque.db real).
-// Sessao e CaminhoBancoOverride são estáticos: toda classe de teste que use banco deve ficar nesta coleção,
-// para o xUnit não rodar duas ao mesmo tempo.
-[Collection("banco")]
+// Cada teste ganha um banco SQLite novo em arquivo temporário (nunca toca no estoque.db real)
+// e o seu próprio "usuário logado". Não há estado compartilhado entre os testes.
 public class EstoqueTests : IDisposable
 {
     private readonly string _arquivo = Path.Combine(Path.GetTempPath(), $"estoque-teste-{Guid.NewGuid():N}.db");
-    private readonly ProdutoService _produtos = new();
-    private readonly MovimentacaoService _movs = new();
+    private readonly ContextoDoTenantDesktop _tenant = new();
+    private readonly ProdutoService _produtos;
+    private readonly MovimentacaoService _movs;
     private readonly int _empresaA;
     private readonly int _empresaB;
 
     public EstoqueTests()
     {
-        AppDbContext.CaminhoBancoOverride = _arquivo;
+        var fabrica = new AppDbContextFactory(_tenant, _arquivo);
+        _produtos = new ProdutoService(fabrica);
+        _movs = new MovimentacaoService(fabrica);
 
-        using var db = new AppDbContext();
+        using var db = fabrica.Criar();
         db.Database.EnsureCreated();
 
         var a = NovaEmpresa("Empresa A");
@@ -40,8 +41,7 @@ public class EstoqueTests : IDisposable
 
     public void Dispose()
     {
-        Sessao.Encerrar();
-        AppDbContext.CaminhoBancoOverride = null;
+        _tenant.Encerrar();
         SqliteConnection.ClearAllPools();
         try { File.Delete(_arquivo); } catch (IOException) { }
     }
@@ -53,8 +53,8 @@ public class EstoqueTests : IDisposable
         DataVencimento = DateTime.Now.AddYears(1)
     };
 
-    private static void EntrarComo(int empresaId) =>
-        Sessao.Iniciar(new Usuario { Id = 1, EmpresaId = empresaId });
+    private void EntrarComo(int empresaId) =>
+        _tenant.Iniciar(new Usuario { Id = 1, EmpresaId = empresaId });
 
     private int CriarProduto(string codigo, int quantidade)
     {
@@ -209,5 +209,43 @@ public class EstoqueTests : IDisposable
         var invalido = new Produto { Codigo = "N1", Nome = "Neg", PrecoCusto = -1m, PrecoVenda = 2m };
 
         Assert.Throws<System.ComponentModel.DataAnnotations.ValidationException>(() => _produtos.Add(invalido));
+    }
+
+    [Fact]
+    public void Contexto_do_tenant_comeca_vazio_e_volta_a_ficar_vazio_depois_do_logout()
+    {
+        var tenant = new ContextoDoTenantDesktop();
+        Assert.Equal(0, tenant.EmpresaId);
+
+        tenant.Iniciar(new Usuario { Id = 7, EmpresaId = 3 });
+        Assert.Equal(3, tenant.EmpresaId);
+        Assert.Equal(7, tenant.UsuarioId);
+
+        tenant.Encerrar();
+        Assert.Equal(0, tenant.EmpresaId);
+        Assert.Equal(0, tenant.UsuarioId);
+    }
+
+    [Fact]
+    public void Sem_empresa_na_sessao_nao_e_possivel_gravar_produto()
+    {
+        _tenant.Encerrar();
+
+        var produto = new Produto { Codigo = "X", Nome = "X", PrecoCusto = 1m, PrecoVenda = 2m };
+
+        Assert.Throws<InvalidOperationException>(() => _produtos.Add(produto));
+    }
+
+    [Fact]
+    public void Dois_contextos_com_tenants_diferentes_no_mesmo_banco_nao_se_misturam()
+    {
+        CriarProduto("A1", 1);
+
+        var outroTenant = new ContextoDoTenantDesktop();
+        outroTenant.Iniciar(new Usuario { Id = 2, EmpresaId = _empresaB });
+        var produtosDaB = new ProdutoService(new AppDbContextFactory(outroTenant, _arquivo));
+
+        Assert.Empty(produtosDaB.GetAll());
+        Assert.Single(_produtos.GetAll());
     }
 }
