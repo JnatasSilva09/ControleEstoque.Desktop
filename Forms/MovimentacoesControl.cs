@@ -10,7 +10,7 @@ namespace ControleEstoque.Desktop.Forms
 {
     public class MovimentacoesControl : UserControl
     {
-        private readonly MovimentacaoService _service = new();
+        private readonly MovimentacaoService _service;
         private readonly TextBox _txtProduto = new();
         private readonly DateTimePicker _dtInicio = new();
         private readonly DateTimePicker _dtFim = new();
@@ -18,8 +18,9 @@ namespace ControleEstoque.Desktop.Forms
         private readonly Label _lblAte = new() { Text = "até", AutoSize = true };
         private readonly DataGridView _grid = new();
 
-        public MovimentacoesControl()
+        public MovimentacoesControl(Servicos servicos)
         {
+            _service = servicos.Movimentacoes;
             Dock = DockStyle.Fill;
             Padding = new Padding(25);
             BackColor = Color.FromArgb(245, 246, 248);

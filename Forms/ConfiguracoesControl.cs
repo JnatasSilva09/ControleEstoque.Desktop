@@ -9,7 +9,7 @@ namespace ControleEstoque.Desktop.Forms
 {
     public class ConfiguracoesControl : UserControl
     {
-        private readonly ConfiguracaoService _service = new();
+        private readonly ConfiguracaoService _service;
         private readonly Usuario _usuarioLogado;
 
         private readonly TextBox _txtNomeEmpresa = new();
@@ -26,8 +26,12 @@ namespace ControleEstoque.Desktop.Forms
         private byte[]? _logoBytes;
         private int _configId;
 
-        public ConfiguracoesControl(Usuario usuarioLogado)
+        private readonly Servicos _servicos;
+
+        public ConfiguracoesControl(Servicos servicos, Usuario usuarioLogado)
         {
+            _servicos = servicos;
+            _service = servicos.Configuracao;
             _usuarioLogado = usuarioLogado;
 
             Dock = DockStyle.Fill;
@@ -220,7 +224,7 @@ namespace ControleEstoque.Desktop.Forms
 
             try
             {
-                Services.BackupService.SalvarCopia(dialogo.FileName);
+                _servicos.Backup.SalvarCopia(dialogo.FileName);
                 MessageBox.Show("Backup salvo com sucesso!", "Sucesso", MessageBoxButtons.OK, MessageBoxIcon.Information);
             }
             catch (Exception ex)

@@ -10,9 +10,16 @@ namespace ControleEstoque.Desktop.Services
 {
     public class ProdutoService
     {
+        private readonly IAppDbContextFactory _fabrica;
+
+        public ProdutoService(IAppDbContextFactory fabrica)
+        {
+            _fabrica = fabrica;
+        }
+
         public List<Produto> GetAll(string? filtro = null)
         {
-            using var db = new AppDbContext();
+            using var db = _fabrica.Criar();
             var query = db.Produtos
                 .Include(p => p.Categoria)
                 .Include(p => p.Fornecedor)
@@ -34,7 +41,7 @@ namespace ControleEstoque.Desktop.Services
 
         public Produto? GetById(int id)
         {
-            using var db = new AppDbContext();
+            using var db = _fabrica.Criar();
             return db.Produtos
                 .Include(p => p.Categoria)
                 .Include(p => p.Fornecedor)
@@ -44,7 +51,7 @@ namespace ControleEstoque.Desktop.Services
 
         public void Add(Produto produto)
         {
-            using var db = new AppDbContext();
+            using var db = _fabrica.Criar();
 
             produto.Nome = produto.Nome.Trim();
             produto.Codigo = produto.Codigo.Trim();
@@ -80,7 +87,7 @@ namespace ControleEstoque.Desktop.Services
 
         public void Update(Produto produto)
         {
-            using var db = new AppDbContext();
+            using var db = _fabrica.Criar();
 
             produto.Nome = produto.Nome.Trim();
             produto.Codigo = produto.Codigo.Trim();
@@ -118,7 +125,7 @@ namespace ControleEstoque.Desktop.Services
             atual.UnidadeMedida = produto.UnidadeMedida;
             atual.PrecoCusto = produto.PrecoCusto;
             atual.PrecoVenda = produto.PrecoVenda;
-            atual.Quantidade = produto.Quantidade;
+            // Quantidade NÃO é copiada aqui de propósito: o estoque só muda por entrada, saída ou ajuste.         
             atual.EstoqueMinimo = produto.EstoqueMinimo;
             atual.CategoriaId = produto.CategoriaId;
             atual.FornecedorId = produto.FornecedorId;
@@ -129,7 +136,7 @@ namespace ControleEstoque.Desktop.Services
         // Em vez de apagar, o produto é inativado: assim o histórico de movimentações continua intacto
         public void Delete(int id)
         {
-            using var db = new AppDbContext();
+            using var db = _fabrica.Criar();
             var produto = db.Produtos.FirstOrDefault(p => p.Id == id);
             if (produto != null)
             {
@@ -140,7 +147,7 @@ namespace ControleEstoque.Desktop.Services
 
         public List<Produto> GetEstoqueBaixo()
         {
-            using var db = new AppDbContext();
+            using var db = _fabrica.Criar();
             return db.Produtos
                 .Include(p => p.Categoria)
                 .AsNoTracking()
@@ -151,7 +158,7 @@ namespace ControleEstoque.Desktop.Services
 
         public List<Produto> GetSemEstoque()
         {
-            using var db = new AppDbContext();
+            using var db = _fabrica.Criar();
             return db.Produtos
                 .Include(p => p.Categoria)
                 .AsNoTracking()
@@ -162,13 +169,13 @@ namespace ControleEstoque.Desktop.Services
 
         public int TotalProdutos()
         {
-            using var db = new AppDbContext();
+            using var db = _fabrica.Criar();
             return db.Produtos.Count(p => p.Ativo);
         }
 
         public decimal ValorTotalEstoque()
         {
-            using var db = new AppDbContext();
+            using var db = _fabrica.Criar();
             return db.Produtos
                      .Where(p => p.Ativo)
                      .AsEnumerable()

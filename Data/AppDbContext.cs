@@ -18,23 +18,33 @@ namespace ControleEstoque.Desktop.Data
         public DbSet<Configuracao> Configuracoes { get; set; }
         public DbSet<Empresa> Empresas { get; set; } // Adicionado para resolver o erro do AuthService
 
-        // Empresa de quem está logado. É lida na hora em que o contexto é criado
-        // e usada nos filtros abaixo, assim cada empresa só enxerga os próprios dados.
-        public int EmpresaIdAtual { get; } = Sessao.EmpresaId;
+        private readonly string _caminhoBanco;
+
+        public AppDbContext(IContextoDoTenant tenant, string? caminhoBanco = null)
+        {
+            // Empresa de quem está logado. É lida na hora em que o contexto é criado
+            // e usada nos filtros abaixo, assim cada empresa só enxerga os próprios dados.
+            EmpresaIdAtual = tenant.EmpresaId;
+            _caminhoBanco = caminhoBanco ?? CaminhoBanco;
+        }
+
+        public int EmpresaIdAtual { get; }
 
         public static string PastaDados => Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "ControleDeEstoque");
 
+        // Caminho padrão do banco de verdade
         public static string CaminhoBanco => Path.Combine(PastaDados, "estoque.db");
 
         protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
         {
-            if (!Directory.Exists(PastaDados))
+            var pasta = Path.GetDirectoryName(_caminhoBanco);
+            if (!string.IsNullOrEmpty(pasta) && !Directory.Exists(pasta))
             {
-                Directory.CreateDirectory(PastaDados);
+                Directory.CreateDirectory(pasta);
             }
 
-            optionsBuilder.UseSqlite($"Data Source={CaminhoBanco};Foreign Keys=True;");
+            optionsBuilder.UseSqlite($"Data Source={_caminhoBanco};Foreign Keys=True;");
         }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)

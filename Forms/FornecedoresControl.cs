@@ -11,13 +11,17 @@ namespace ControleEstoque.Desktop.Forms
 {
     public class FornecedoresControl : UserControl
     {
-        private readonly FornecedorService _service = new();
+        private readonly FornecedorService _service;
         private readonly TextBox _txtBusca = new();
         private readonly DataGridView _grid = new();
         private List<Fornecedor> _fornecedores = new();
 
-        public FornecedoresControl()
+        private readonly Servicos _servicos;
+
+        public FornecedoresControl(Servicos servicos)
         {
+            _servicos = servicos;
+            _service = servicos.Fornecedores;
             Dock = DockStyle.Fill;
             Padding = new Padding(25);
             BackColor = Color.FromArgb(245, 246, 248);
@@ -155,7 +159,7 @@ namespace ControleEstoque.Desktop.Forms
 
         private void AbrirEdicao(Fornecedor? fornecedor)
         {
-            using var form = new FornecedorEditForm(fornecedor?.Id);
+            using var form = new FornecedorEditForm(_servicos, fornecedor?.Id);
             if (form.ShowDialog() == DialogResult.OK)
             {
                 Carregar();

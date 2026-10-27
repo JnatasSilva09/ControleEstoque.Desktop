@@ -8,14 +8,15 @@ namespace ControleEstoque.Desktop.Forms
 {
     public class CategoriaEditForm : Form
     {
-        private readonly CategoriaService _service = new();
+        private readonly CategoriaService _service;
         private readonly int? _categoriaId;
 
         private readonly TextBox _txtNome = new();
         private readonly TextBox _txtDescricao = new() { Multiline = true };
 
-        public CategoriaEditForm(int? categoriaId)
+        public CategoriaEditForm(Servicos servicos, int? categoriaId)
         {
+            _service = servicos.Categorias;
             _categoriaId = categoriaId;
 
             Text = categoriaId == null ? "Nova Categoria" : "Editar Categoria";

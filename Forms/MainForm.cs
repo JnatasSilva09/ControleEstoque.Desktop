@@ -18,8 +18,11 @@ namespace ControleEstoque.Desktop.Forms
 
         public bool SolicitouLogout { get; private set; }
 
-        public MainForm(Usuario usuarioLogado)
+        private readonly Servicos _servicos;
+
+        public MainForm(Servicos servicos, Usuario usuarioLogado)
         {
+            _servicos = servicos;
             _usuarioLogado = usuarioLogado;
 
             Text = "Controle de Estoque";
@@ -39,7 +42,7 @@ namespace ControleEstoque.Desktop.Forms
             string nomeEmpresa = "CONTROLE DE\nESTOQUE";
             try
             {
-                var config = new ConfiguracaoService().GetConfiguracao();
+                var config = _servicos.Configuracao.GetConfiguracao();
                 if (!string.IsNullOrWhiteSpace(config?.NomeEmpresa) && config.NomeEmpresa != "Minha Empresa")
                 {
                     nomeEmpresa = config.NomeEmpresa.ToUpper();
@@ -94,19 +97,19 @@ namespace ControleEstoque.Desktop.Forms
             _content.BringToFront();
 
             // ---------- Itens de Menu ----------
-            CriarBotaoMenu("📊   Dashboard", () => MostrarTela(new DashboardControl()));
-            CriarBotaoMenu("📦   Produtos", () => MostrarTela(new ProdutosControl()));
-            CriarBotaoMenu("📂   Categorias", () => MostrarTela(new CategoriasControl()));
-            CriarBotaoMenu("🚚   Fornecedores", () => MostrarTela(new FornecedoresControl()));
-            CriarBotaoMenu("⬆   Entrada de Estoque", () => MostrarTela(new EntradaControl()));
-            CriarBotaoMenu("⬇   Saída de Estoque", () => MostrarTela(new SaidaControl()));
-            CriarBotaoMenu("📋   Movimentações", () => MostrarTela(new MovimentacoesControl()));
-            CriarBotaoMenu("📈   Relatórios", () => MostrarTela(new RelatoriosControl()));
-         CriarBotaoMenu("⚙   Configurações", () => MostrarTela(new ConfiguracoesControl(_usuarioLogado)));
+            CriarBotaoMenu("📊   Dashboard", () => MostrarTela(new DashboardControl(_servicos)));
+            CriarBotaoMenu("📦   Produtos", () => MostrarTela(new ProdutosControl(_servicos)));
+            CriarBotaoMenu("📂   Categorias", () => MostrarTela(new CategoriasControl(_servicos)));
+            CriarBotaoMenu("🚚   Fornecedores", () => MostrarTela(new FornecedoresControl(_servicos)));
+            CriarBotaoMenu("⬆   Entrada de Estoque", () => MostrarTela(new EntradaControl(_servicos)));
+            CriarBotaoMenu("⬇   Saída de Estoque", () => MostrarTela(new SaidaControl(_servicos)));
+            CriarBotaoMenu("📋   Movimentações", () => MostrarTela(new MovimentacoesControl(_servicos)));
+            CriarBotaoMenu("📈   Relatórios", () => MostrarTela(new RelatoriosControl(_servicos)));
+         CriarBotaoMenu("⚙   Configurações", () => MostrarTela(new ConfiguracoesControl(_servicos, _usuarioLogado)));
 
             if (_usuarioLogado.Perfil == PerfilUsuario.Administrador)
             {
-                CriarBotaoMenu("👤   Usuários", () => MostrarTela(new UsuariosControl(_usuarioLogado)));
+                CriarBotaoMenu("👤   Usuários", () => MostrarTela(new UsuariosControl(_servicos, _usuarioLogado)));
             }
 
             // Seleciona a primeira opção da lista visual (Dashboard)
@@ -114,7 +117,7 @@ namespace ControleEstoque.Desktop.Forms
             if (primeiroBotao != null)
             {
                 AtivarBotao(primeiroBotao);
-                MostrarTela(new DashboardControl());
+                MostrarTela(new DashboardControl(_servicos));
             }
         }
 

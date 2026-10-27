@@ -8,13 +8,15 @@ namespace ControleEstoque.Desktop.Forms
 {
     public class DashboardControl : UserControl
     {
-        private readonly ProdutoService _produtoService = new();
-        private readonly MovimentacaoService _movimentacaoService = new();
+        private readonly ProdutoService _produtoService;
+        private readonly MovimentacaoService _movimentacaoService;
         private readonly FlowLayoutPanel _cardsPanel = new();
         private readonly ListView _listaReposicao = new();
 
-        public DashboardControl()
+        public DashboardControl(Servicos servicos)
         {
+            _produtoService = servicos.Produtos;
+            _movimentacaoService = servicos.Movimentacoes;
             Dock = DockStyle.Fill;
             Padding = new Padding(25);
             BackColor = Color.FromArgb(245, 246, 248);

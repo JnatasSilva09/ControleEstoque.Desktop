@@ -11,13 +11,17 @@ namespace ControleEstoque.Desktop.Forms
 {
     public class CategoriasControl : UserControl
     {
-        private readonly CategoriaService _service = new();
+        private readonly CategoriaService _service;
         private readonly TextBox _txtBusca = new();
         private readonly DataGridView _grid = new();
         private List<CategoriaViewModel> _categorias = new();
 
-        public CategoriasControl()
+        private readonly Servicos _servicos;
+
+        public CategoriasControl(Servicos servicos)
         {
+            _servicos = servicos;
+            _service = servicos.Categorias;
             Dock = DockStyle.Fill;
             Padding = new Padding(25);
             BackColor = Color.FromArgb(245, 246, 248);
@@ -48,7 +52,7 @@ namespace ControleEstoque.Desktop.Forms
                 FlatStyle = FlatStyle.Flat
             };
             btnNovo.FlatAppearance.BorderSize = 0;
-            btnNovo.Click += (s, e) => AbrirEdicao(null);
+                      btnNovo.Click += (s, e) => AbrirEdicao(null);
             Controls.Add(btnNovo);
 
             var btnEditar = new Button { Text = "Editar", Location = new Point(515, 58), Size = new Size(100, 32) };
@@ -120,9 +124,9 @@ namespace ControleEstoque.Desktop.Forms
             AbrirEdicao(categoria);
         }
 
-        private void AbrirEdicao(CategoriaViewModel categoria)
+      private void AbrirEdicao(CategoriaViewModel? categoria)
         {
-            using var form = new CategoriaEditForm(categoria?.Id);
+            using var form = new CategoriaEditForm(_servicos, categoria?.Id);
             if (form.ShowDialog() == DialogResult.OK)
             {
                 Carregar();
