@@ -1,6 +1,7 @@
 using System;
 using System.Drawing;
 using System.Windows.Forms;
+using ControleEstoque.Desktop.Helpers;
 using ControleEstoque.Desktop.Models;
 using ControleEstoque.Desktop.Services;
 
@@ -189,6 +190,7 @@ namespace ControleEstoque.Desktop.Forms
                 _numPrecoCusto.Value = produto.PrecoCusto;
                 _numPrecoVenda.Value = produto.PrecoVenda;
                 _numQuantidade.Value = produto.Quantidade;
+                _numQuantidade.Enabled = false; // estoque só muda por entrada/saída
                 _numEstoqueMinimo.Value = produto.EstoqueMinimo;
                 _cboCategoria.SelectedValue = produto.CategoriaId ?? 0;
                 _cboFornecedor.SelectedValue = produto.FornecedorId ?? 0;
@@ -199,74 +201,56 @@ namespace ControleEstoque.Desktop.Forms
             }
         }
 
-        private void BtnSalvar_Click(object? sender, EventArgs e)
+private void BtnSalvar_Click(object? sender, EventArgs e)
+{
+    try
+    {
+        // 1. Monta o produto com os dados preenchidos no formulário
+        var produto = new Produto
         {
-            if (string.IsNullOrWhiteSpace(_txtCodigo.Text) || string.IsNullOrWhiteSpace(_txtNome.Text))
-            {
-                MessageBox.Show("Os campos Código e Nome são obrigatórios.", "Atenção", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                return;
-            }
+            Codigo = _txtCodigo.Text.Trim(),
+            CodigoBarras = string.IsNullOrWhiteSpace(_txtCodigoBarras.Text) ? null : _txtCodigoBarras.Text.Trim(),
+            Nome = _txtNome.Text.Trim(),
+            Descricao = string.IsNullOrWhiteSpace(_txtDescricao.Text) ? null : _txtDescricao.Text.Trim(),
+            UnidadeMedida = string.IsNullOrWhiteSpace(_txtUnidade.Text) ? "UN" : _txtUnidade.Text.Trim(),
+            PrecoCusto = _numPrecoCusto.Value,
+            PrecoVenda = _numPrecoVenda.Value,
+            Quantidade = (int)_numQuantidade.Value,
+            EstoqueMinimo = (int)_numEstoqueMinimo.Value,
+            
+            // Trata o ComboBox de Categoria (se selecionado ID 0 ou nulo, vira null)
+            CategoriaId = _cboCategoria.SelectedValue is int catId && catId > 0 ? catId : null,
+            
+            // Trata o ComboBox de Fornecedor (se selecionado ID 0 ou nulo, vira null)
+            FornecedorId = _cboFornecedor.SelectedValue is int fornId && fornId > 0 ? fornId : null
+        };
 
-            int categoriaId = ExtrairIdSelecionado(_cboCategoria);
-            int fornecedorId = ExtrairIdSelecionado(_cboFornecedor);
-
-            try
-            {
-                if (_produtoId == null)
-                {
-                    var produto = new Produto
-                    {
-                        Codigo = _txtCodigo.Text.Trim(),
-                        CodigoBarras = _txtCodigoBarras.Text.Trim(),
-                        Nome = _txtNome.Text.Trim(),
-                        Descricao = _txtDescricao.Text.Trim(),
-                        UnidadeMedida = string.IsNullOrWhiteSpace(_txtUnidade.Text) ? "UN" : _txtUnidade.Text.Trim(),
-                        PrecoCusto = _numPrecoCusto.Value,
-                        PrecoVenda = _numPrecoVenda.Value,
-                        Quantidade = (int)_numQuantidade.Value,
-                        EstoqueMinimo = (int)_numEstoqueMinimo.Value,
-                        CategoriaId = categoriaId == 0 ? null : categoriaId,
-                        FornecedorId = fornecedorId == 0 ? null : fornecedorId,
-                        DataCadastro = DateTime.Now
-                    };
-                    _produtoService.Add(produto);
-                }
-                else
-                {
-                    var produto = _produtoService.GetById(_produtoId.Value);
-                    if (produto == null) return;
-
-                    produto.Codigo = _txtCodigo.Text.Trim();
-                    produto.CodigoBarras = _txtCodigoBarras.Text.Trim();
-                    produto.Nome = _txtNome.Text.Trim();
-                    produto.Descricao = _txtDescricao.Text.Trim();
-                    produto.UnidadeMedida = string.IsNullOrWhiteSpace(_txtUnidade.Text) ? "UN" : _txtUnidade.Text.Trim();
-                    produto.PrecoCusto = _numPrecoCusto.Value;
-                    produto.PrecoVenda = _numPrecoVenda.Value;
-                    produto.Quantidade = (int)_numQuantidade.Value;
-                    produto.EstoqueMinimo = (int)_numEstoqueMinimo.Value;
-                    produto.CategoriaId = categoriaId == 0 ? null : categoriaId;
-                    produto.FornecedorId = fornecedorId == 0 ? null : fornecedorId;
-
-                    _produtoService.Update(produto);
-                }
-
-                DialogResult = DialogResult.OK;
-                Close();
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show($"Erro ao salvar o produto: {ex.Message}", "Erro", MessageBoxButtons.OK, MessageBoxIcon.Error);
-            }
+        // 2. Salva no banco de dados através do serviço (Add ou Update)
+        if (_produtoId.HasValue && _produtoId.Value > 0)
+        {
+            produto.Id = _produtoId.Value;
+            _produtoService.Update(produto);
+        }
+        else
+        {
+            _produtoService.Add(produto);
         }
 
-        private static int ExtrairIdSelecionado(ComboBox combo)
-        {
-            if (combo.SelectedValue != null && int.TryParse(combo.SelectedValue.ToString(), out int id))
-            {
-                return id;
-            }
-            return 0;
-        }
+        MessageBox.Show("Registro salvo com sucesso!", "Sucesso", MessageBoxButtons.OK, MessageBoxIcon.Information);
+        
+        this.DialogResult = DialogResult.OK;
+        this.Close();
+    }
+    catch (Exception ex) when (ex is InvalidOperationException || ex is System.ComponentModel.DataAnnotations.ValidationException)
+    {
+        // Regras do sistema (ex.: código repetido): é um aviso, não um erro do programa
+        MessageBox.Show(ex.Message, "Não foi possível salvar", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+    }
+    catch (Exception ex)
+    {
+        LogHelper.Erro(ex, "Salvar produto");
+        MessageBox.Show($"Erro ao salvar: {ex.Message}", "Erro", MessageBoxButtons.OK, MessageBoxIcon.Error);
+    }
+}
     }
 }

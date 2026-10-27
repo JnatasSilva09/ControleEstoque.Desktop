@@ -6,8 +6,9 @@ namespace ControleEstoque.Desktop.Helpers;
 
 public static class PasswordHelper
 {
-    private const int SaltSize = 16; 
-    private const int HashSize = 20;  
+    // Usado só para conferir senhas antigas (formato anterior ao BCrypt)
+    private const int SaltSize = 16;
+    private const int HashSize = 20;
     private const int Iterations = 10000;
 
     /// <summary>
@@ -22,6 +23,10 @@ public static class PasswordHelper
         if (password.Length < 8)
             return (false, "A senha deve ter no mínimo 8 caracteres.");
 
+        // O BCrypt só considera os primeiros 72 caracteres
+        if (password.Length > 72)
+            return (false, "A senha deve ter no máximo 72 caracteres.");
+
         if (!Regex.IsMatch(password, @"[A-Z]"))
             return (false, "A senha deve conter pelo menos uma letra maiúscula.");
 
@@ -31,45 +36,68 @@ public static class PasswordHelper
         if (!Regex.IsMatch(password, @"[0-9]"))
             return (false, "A senha deve conter pelo menos um número.");
 
-      if (!Regex.IsMatch(password, @"[!@#$%^&*(),.??"":{}|<>]"))
+        if (!Regex.IsMatch(password, @"[^\p{L}\p{N}]"))
             return (false, "A senha deve conter pelo menos um caractere especial.");
 
         return (true, "Senha válida.");
     }
 
+    // Gera o hash com BCrypt (o salt já fica dentro do próprio hash)
     public static string HashPassword(string password)
     {
-        using var rng = RandomNumberGenerator.Create();
-        byte[] salt = new byte[SaltSize];
-        rng.GetBytes(salt);
-
-        using var pbkdf2 = new Rfc2898DeriveBytes(password, salt, Iterations, HashAlgorithmName.SHA256);
-        byte[] hash = pbkdf2.GetBytes(HashSize);
-
-        byte[] hashBytes = new byte[SaltSize + HashSize];
-        Array.Copy(salt, 0, hashBytes, 0, SaltSize);
-        Array.Copy(hash, 0, hashBytes, SaltSize, HashSize);
-
-        return Convert.ToBase64String(hashBytes);
+        return BCrypt.Net.BCrypt.HashPassword(password, 12);
     }
 
-    public static bool VerifyPassword(string password, string base64Hash)
+    public static bool VerifyPassword(string password, string hashGuardado)
     {
-        byte[] hashBytes = Convert.FromBase64String(base64Hash);
-        byte[] salt = new byte[SaltSize];
-        Array.Copy(hashBytes, 0, salt, 0, SaltSize);
+        if (string.IsNullOrEmpty(hashGuardado))
+            return false;
 
-        using var pbkdf2 = new Rfc2898DeriveBytes(password, salt, Iterations, HashAlgorithmName.SHA256);
-        byte[] hash = pbkdf2.GetBytes(HashSize);
-
-        for (int i = 0; i < HashSize; i++)
+        // Hash novo (BCrypt começa com "$2")
+        if (hashGuardado.StartsWith("$2"))
         {
-            if (hashBytes[SaltSize + i] != hash[i])
+            try
+            {
+                return BCrypt.Net.BCrypt.Verify(password, hashGuardado);
+            }
+            catch (Exception)
             {
                 return false;
             }
         }
 
-        return true;
+        // Hash antigo: ainda aceita para ninguém ficar sem acesso
+        return VerificarHashAntigo(password, hashGuardado);
+    }
+
+    // Indica se o hash guardado ainda está no formato antigo e deve ser regravado com BCrypt
+    public static bool PrecisaAtualizarHash(string hashGuardado)
+    {
+        return !string.IsNullOrEmpty(hashGuardado) && !hashGuardado.StartsWith("$2");
+    }
+
+    private static bool VerificarHashAntigo(string password, string base64Hash)
+    {
+        try
+        {
+            byte[] hashBytes = Convert.FromBase64String(base64Hash);
+            if (hashBytes.Length != SaltSize + HashSize)
+                return false;
+
+            byte[] salt = new byte[SaltSize];
+            Array.Copy(hashBytes, 0, salt, 0, SaltSize);
+
+            using var pbkdf2 = new Rfc2898DeriveBytes(password, salt, Iterations, HashAlgorithmName.SHA256);
+            byte[] hash = pbkdf2.GetBytes(HashSize);
+
+            byte[] esperado = new byte[HashSize];
+            Array.Copy(hashBytes, SaltSize, esperado, 0, HashSize);
+
+            return CryptographicOperations.FixedTimeEquals(hash, esperado);
+        }
+        catch (FormatException)
+        {
+            return false;
+        }
     }
 }

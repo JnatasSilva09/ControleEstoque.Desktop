@@ -46,7 +46,7 @@ public void Excluir(int id)
             "Não é possível excluir esta categoria pois existem produtos associados a ela.");
     }
 
-    var categoria = db.Categorias.Find(id);
+    var categoria = db.Categorias.FirstOrDefault(c => c.Id == id);
     if (categoria != null)
     {
         db.Categorias.Remove(categoria);
@@ -96,7 +96,7 @@ public void Excluir(int id)
         public void Delete(int id)
         {
             using var db = new AppDbContext();
-            var categoria = db.Categorias.Find(id);
+            var categoria = db.Categorias.FirstOrDefault(c => c.Id == id);
 
             if (categoria != null)
             {

@@ -26,13 +26,18 @@ namespace ControleEstoque.Desktop.Models
         [StringLength(255)]
         public string SenhaHash { get; set; } = string.Empty;
 
-        [Required]
+        // Não é mais usado: o BCrypt já guarda o salt dentro do próprio SenhaHash.
+        // A propriedade continua aqui só para não quebrar bancos que já têm essa coluna.
         [StringLength(255)]
         public string SenhaSalt { get; set; } = string.Empty;
 
         public PerfilUsuario Perfil { get; set; } = PerfilUsuario.Operador;
 
         public bool Ativo { get; set; } = true;
+
+        // Quando for true, o usuário precisa criar uma senha nova no próximo login
+        // (usado quando o administrador cria o usuário ou redefine a senha dele)
+        public bool PrecisaTrocarSenha { get; set; }
 
         public DateTime DataCadastro { get; set; } = DateTime.Now;
     

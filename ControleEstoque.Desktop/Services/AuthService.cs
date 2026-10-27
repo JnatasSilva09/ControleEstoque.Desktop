@@ -2,70 +2,102 @@ using System;
 using System.Linq;
 using Microsoft.EntityFrameworkCore;
 using ControleEstoque.Desktop.Data;
+using ControleEstoque.Desktop.Helpers;
 using ControleEstoque.Desktop.Models;
-using BCrypt.Net;
 
 namespace ControleEstoque.Desktop.Services
 {
     public class AuthService
     {
-        private readonly AppDbContext _context = new();
-
         public bool RegistrarNovaEmpresa(string nomeEmpresa, string login, string senha)
         {
-            if (_context.Usuarios.Any(u => u.Login == login))
+            using var db = new AppDbContext();
+
+            var loginLimpo = login.Trim();
+            if (db.Usuarios.Any(u => u.Login.ToLower() == loginLimpo.ToLower()))
             {
-                throw new Exception("Este login já está a ser utilizado.");
+                throw new InvalidOperationException("Este login já está sendo utilizado.");
             }
+
+            // Empresa e usuário são criados juntos: se um falhar, nenhum dos dois fica salvo
+            using var transacao = db.Database.BeginTransaction();
 
             var empresa = new Empresa
             {
-                NomeEmpresa = nomeEmpresa,
+                NomeEmpresa = nomeEmpresa.Trim(),
                 StatusAssinatura = StatusAssinatura.Degustacao,
                 DataVencimento = DateTime.Now.AddDays(14)
             };
 
-            _context.Empresas.Add(empresa);
-            _context.SaveChanges();
+            db.Empresas.Add(empresa);
+            db.SaveChanges();
 
-            // Gera o Hash seguro da palavra-passe com BCrypt
-            string senhaHashCriptografada = BCrypt.Net.BCrypt.HashPassword(senha);
+            // Gera o Hash seguro da senha com BCrypt
+            string senhaHashCriptografada = PasswordHelper.HashPassword(senha);
 
             var usuario = new Usuario
             {
                 Nome = "Administrador",
-                Login = login,
+                Login = loginLimpo,
                 SenhaHash = senhaHashCriptografada,
+                Perfil = PerfilUsuario.Administrador, // quem cria a conta é o administrador da empresa
                 EmpresaId = empresa.Id
             };
 
-            _context.Usuarios.Add(usuario);
-            _context.SaveChanges();
+            db.Usuarios.Add(usuario);
+            db.SaveChanges();
+
+            transacao.Commit();
 
             return true;
         }
 
         public Usuario? Autenticar(string login, string senha)
         {
-            // Procura o utilizador pelo login
-            var usuario = _context.Usuarios
-                .Include(u => u.Empresa)
-                .FirstOrDefault(u => u.Login == login);
+            using var db = new AppDbContext();
 
-            if (usuario == null)
+            // Procura o usuário pelo login
+            var loginLimpo = login.Trim();
+            var usuario = db.Usuarios
+                .Include(u => u.Empresa)
+                .FirstOrDefault(u => u.Login.ToLower() == loginLimpo.ToLower());
+
+            if (usuario == null || !usuario.Ativo)
             {
                 return null;
             }
 
-            // Valida a palavra-passe em texto simples contra o Hash guardado
-            bool senhaValida = BCrypt.Net.BCrypt.Verify(senha, usuario.SenhaHash);
-
-            if (!senhaValida)
+            // Confere a senha digitada contra o Hash guardado
+            if (!PasswordHelper.VerifyPassword(senha, usuario.SenhaHash))
             {
                 return null;
+            }
+
+            // Se a senha ainda estava no formato antigo, aproveita o login para regravar com BCrypt
+            if (PasswordHelper.PrecisaAtualizarHash(usuario.SenhaHash))
+            {
+                usuario.SenhaHash = PasswordHelper.HashPassword(senha);
+                db.SaveChanges();
             }
 
             return usuario;
+        }
+
+        // Usada quando o usuário precisa criar uma senha nova no primeiro acesso
+        public void AlterarSenha(int usuarioId, string novaSenha)
+        {
+            var (senhaValida, mensagem) = PasswordHelper.ValidatePasswordStrength(novaSenha);
+            if (!senhaValida)
+                throw new InvalidOperationException(mensagem);
+
+            using var db = new AppDbContext();
+            var usuario = db.Usuarios.Find(usuarioId)
+                ?? throw new InvalidOperationException("Usuário não encontrado.");
+
+            usuario.SenhaHash = PasswordHelper.HashPassword(novaSenha);
+            usuario.PrecisaTrocarSenha = false;
+
+            db.SaveChanges();
         }
     }
 }

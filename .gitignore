@@ -1,18 +1,12 @@
-# --- Build / Compilacao (.NET / WinForms) ---
-[Bb]in/
-[Oo]bj/
-[Ll]og/
-[Ll]ogs/
-*.suo
+# Arquivos gerados pela compilação
+bin/
+obj/
+.vs/
 *.user
-*.userosscache
+*.suo
 
-# --- Base de Dados Local e Temporarios ---
+# Banco de dados e backups locais nunca devem ir para o Git
 *.db
-*.db-shm
-*.db-wal
-*.sqlite
-
-# --- Sistema Operacional ---
-.DS_Store
-Thumbs.db
+*.db-journal
+backups/
+logs/

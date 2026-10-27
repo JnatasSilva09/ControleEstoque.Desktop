@@ -25,8 +25,11 @@ namespace ControleEstoque.Desktop.Services
 
             try
             {
-                var produto = db.Produtos.Find(produtoId)
+                var produto = db.Produtos.FirstOrDefault(p => p.Id == produtoId)
                     ?? throw new InvalidOperationException("Produto não encontrado.");
+
+                if (!produto.Ativo)
+                    throw new InvalidOperationException("Este produto está inativo e não pode receber movimentações.");
 
                 // Regra: entrada sempre aumenta o estoque
                 produto.Quantidade += quantidade;
@@ -69,8 +72,11 @@ namespace ControleEstoque.Desktop.Services
 
             try
             {
-                var produto = db.Produtos.Find(produtoId)
+                var produto = db.Produtos.FirstOrDefault(p => p.Id == produtoId)
                     ?? throw new InvalidOperationException("Produto não encontrado.");
+
+                if (!produto.Ativo)
+                    throw new InvalidOperationException("Este produto está inativo e não pode receber movimentações.");
 
                 // Regra principal do sistema: não pode sair mais do que existe em estoque
                 if (quantidade > produto.Quantidade)
@@ -141,12 +147,21 @@ namespace ControleEstoque.Desktop.Services
                 .Sum(m => (int?)m.Quantidade) ?? 0;
         }
 
-        public int TotalSaidas()
+       public int TotalSaidas()
         {
             using var db = new AppDbContext();
             return db.Movimentacoes
-                .Where(m => m.Tipo == TipoMovimentacao.Saida)
-                .Sum(m => (int?)m.Quantidade) ?? 0;
+                     .Where(m => m.Tipo == TipoMovimentacao.Saida)
+                     .Sum(m => (int?)m.Quantidade) ?? 0;
         }
-    }
-}
+
+        /// <summary>
+        /// Retorna todas as movimentações registadas para efeitos de relatório.
+        /// </summary>
+        public List<Movimentacao> ObterMovimentacoes()
+        {
+            using var db = new AppDbContext();
+            return db.Movimentacoes.ToList();
+        }
+    } // <-- Esta é a chave que fecha a classe MovimentacaoService
+} // <-- Esta é a chave que fecha o namespace

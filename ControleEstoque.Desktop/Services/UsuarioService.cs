@@ -10,10 +10,17 @@ namespace ControleEstoque.Desktop.Services
 {
     public class UsuarioService
     {
+        // Só enxerga os usuários da própria empresa
+        private static IQueryable<Usuario> UsuariosDaEmpresa(AppDbContext db)
+        {
+            var empresaId = Sessao.EmpresaId;
+            return db.Usuarios.Where(u => u.EmpresaId == empresaId);
+        }
+
         public List<Usuario> GetAll(string? filtro = null)
         {
             using var db = new AppDbContext();
-            var query = db.Usuarios.AsNoTracking().AsQueryable();
+            var query = UsuariosDaEmpresa(db).AsNoTracking();
 
             if (!string.IsNullOrWhiteSpace(filtro))
             {
@@ -27,7 +34,7 @@ namespace ControleEstoque.Desktop.Services
         public Usuario? GetById(int id)
         {
             using var db = new AppDbContext();
-            return db.Usuarios.AsNoTracking().FirstOrDefault(u => u.Id == id);
+            return UsuariosDaEmpresa(db).AsNoTracking().FirstOrDefault(u => u.Id == id);
         }
 
         public void Add(string nome, string login, string senha, PerfilUsuario perfil)
@@ -35,32 +42,39 @@ namespace ControleEstoque.Desktop.Services
             if (string.IsNullOrWhiteSpace(senha))
                 throw new ArgumentException("A senha não pode estar em branco.");
 
+            var (senhaValida, mensagem) = PasswordHelper.ValidatePasswordStrength(senha);
+            if (!senhaValida)
+                throw new InvalidOperationException(mensagem);
+
             using var db = new AppDbContext();
 
+            // O login é único no sistema todo, porque é com ele que a pessoa entra
             var loginLimpo = login.Trim();
             if (db.Usuarios.Any(u => u.Login.ToLower() == loginLimpo.ToLower()))
                 throw new InvalidOperationException($"Já existe um usuário com o login \"{loginLimpo}\".");
 
-    string hashSenha = PasswordHelper.HashPassword(senha);
+            string hashSenha = PasswordHelper.HashPassword(senha);
 
-  db.Usuarios.Add(new Usuario
-{
-    Nome = nome.Trim(),
-    Login = loginLimpo,
-    SenhaHash = hashSenha,
-    Perfil = perfil,
-    Ativo = true,
-    DataCadastro = DateTime.Now
-        });
+            db.Usuarios.Add(new Usuario
+            {
+                Nome = nome.Trim(),
+                Login = loginLimpo,
+                SenhaHash = hashSenha,
+                Perfil = perfil,
+                Ativo = true,
+                DataCadastro = DateTime.Now,
+                EmpresaId = Sessao.EmpresaId,
+                PrecisaTrocarSenha = true // a senha definida pelo administrador é provisória
+            });
 
-        db.SaveChanges();
-    } // <--- É aqui que deves colocar esta chaveta para fechar o método Add
+            db.SaveChanges();
+        }
 
- 
         public void AtualizarDadosBasicos(int id, string nome, string login, PerfilUsuario perfil, bool ativo)
         {
             using var db = new AppDbContext();
-            var usuario = db.Usuarios.Find(id) ?? throw new InvalidOperationException("Usuário não encontrado.");
+            var usuario = UsuariosDaEmpresa(db).FirstOrDefault(u => u.Id == id)
+                ?? throw new InvalidOperationException("Usuário não encontrado.");
 
             var loginLimpo = login.Trim();
             if (db.Usuarios.Any(u => u.Id != id && u.Login.ToLower() == loginLimpo.ToLower()))
@@ -74,7 +88,7 @@ namespace ControleEstoque.Desktop.Services
 
                 if (desativando || mudandoPerfil)
                 {
-                    var outrosAdminsAtivos = db.Usuarios.Count(u => u.Perfil == PerfilUsuario.Administrador && u.Ativo && u.Id != id);
+                    var outrosAdminsAtivos = UsuariosDaEmpresa(db).Count(u => u.Perfil == PerfilUsuario.Administrador && u.Ativo && u.Id != id);
                     if (outrosAdminsAtivos == 0)
                         throw new InvalidOperationException("Não é possível inativar ou alterar o perfil do único administrador ativo do sistema.");
                 }
@@ -88,30 +102,38 @@ namespace ControleEstoque.Desktop.Services
             db.SaveChanges();
         }
 
-          public void RedefinirSenha(int id, string novaSenha)
-{
-    if (string.IsNullOrWhiteSpace(novaSenha))
-        throw new ArgumentException("A nova senha não pode estar em branco.");
+        public void RedefinirSenha(int id, string novaSenha)
+        {
+            if (string.IsNullOrWhiteSpace(novaSenha))
+                throw new ArgumentException("A nova senha não pode estar em branco.");
 
-    using var db = new AppDbContext();
-    var usuario = db.Usuarios.Find(id) ?? throw new InvalidOperationException("Usuário não encontrado.");
+            var (senhaValida, mensagem) = PasswordHelper.ValidatePasswordStrength(novaSenha);
+            if (!senhaValida)
+                throw new InvalidOperationException(mensagem);
 
-    usuario.SenhaHash = PasswordHelper.HashPassword(novaSenha);
+            using var db = new AppDbContext();
+            var usuario = UsuariosDaEmpresa(db).FirstOrDefault(u => u.Id == id)
+                ?? throw new InvalidOperationException("Usuário não encontrado.");
 
-    db.SaveChanges();
-}
+            usuario.SenhaHash = PasswordHelper.HashPassword(novaSenha);
+
+            // Se o administrador redefiniu a senha de outra pessoa, ela precisa trocar no próximo login
+            usuario.PrecisaTrocarSenha = id != Sessao.UsuarioId;
+
+            db.SaveChanges();
+        }
 
         public void Delete(int id)
         {
             using var db = new AppDbContext();
 
-            var usuario = db.Usuarios.Find(id);
+            var usuario = UsuariosDaEmpresa(db).FirstOrDefault(u => u.Id == id);
             if (usuario == null) return;
 
             // Regra de segurança: nunca deixar o sistema sem nenhum administrador ativo
             if (usuario.Perfil == PerfilUsuario.Administrador && usuario.Ativo)
             {
-                var outrosAdminsAtivos = db.Usuarios.Count(u => u.Perfil == PerfilUsuario.Administrador && u.Ativo && u.Id != id);
+                var outrosAdminsAtivos = UsuariosDaEmpresa(db).Count(u => u.Perfil == PerfilUsuario.Administrador && u.Ativo && u.Id != id);
                 if (outrosAdminsAtivos == 0)
                     throw new InvalidOperationException("Não é possível excluir o único administrador ativo do sistema.");
             }
@@ -119,39 +141,5 @@ namespace ControleEstoque.Desktop.Services
             db.Usuarios.Remove(usuario);
             db.SaveChanges();
         }
-
-        // Confere login e senha. Retorna o usuário se estiver correto e ativo; caso contrário, null.
-        public Usuario? Autenticar(string login, string senha)
-{
-    using var db = new AppDbContext();
-    var loginLimpo = login.Trim();
-    var usuario = db.Usuarios.FirstOrDefault(u => u.Login.ToLower() == loginLimpo.ToLower());
-
-    if (usuario == null || !usuario.Ativo) return null;
-    if (!PasswordHelper.VerifyPassword(senha, usuario.SenhaHash)) return null;
-
-    return usuario;
-}
-
-        // Garante que sempre existe pelo menos um administrador. Roda na inicialização da aplicação.
-      public void GarantirUsuarioAdminPadrao()
-{
-    using var db = new AppDbContext();
-    if (db.Usuarios.Any()) return;
-
-    var hashSenha = PasswordHelper.HashPassword("admin123");
-
-    db.Usuarios.Add(new Usuario
-    {
-        Nome = "Administrador",
-        Login = "admin",
-        SenhaHash = hashSenha,
-        Perfil = PerfilUsuario.Administrador,
-        Ativo = true,
-        DataCadastro = DateTime.Now
-    });
-
-    db.SaveChanges();
-}
     }
 }

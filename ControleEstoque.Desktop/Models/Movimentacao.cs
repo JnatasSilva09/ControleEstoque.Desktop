@@ -10,10 +10,13 @@ namespace ControleEstoque.Desktop.Models
         Saida
     }
 
-    public class Movimentacao
+    public class Movimentacao : IEmpresaEntity
     {
         [Key]
         public int Id { get; set; }
+
+        // Empresa dona deste registro (preenchido automaticamente ao salvar)
+        public int EmpresaId { get; set; }
 
         [Required(ErrorMessage = "O produto é obrigatório.")]
         public int ProdutoId { get; set; }

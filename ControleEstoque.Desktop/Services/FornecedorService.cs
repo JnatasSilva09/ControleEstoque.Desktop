@@ -40,7 +40,7 @@ public void Excluir(int id)
             "Não é possível excluir este fornecedor pois existem produtos associados a ele.");
     }
 
-    var fornecedor = db.Fornecedores.Find(id);
+    var fornecedor = db.Fornecedores.FirstOrDefault(f => f.Id == id);
     if (fornecedor != null)
     {
         db.Fornecedores.Remove(fornecedor);
@@ -84,7 +84,7 @@ public void Excluir(int id)
         public void Delete(int id)
         {
             using var db = new AppDbContext();
-            var fornecedor = db.Fornecedores.Find(id);
+            var fornecedor = db.Fornecedores.FirstOrDefault(f => f.Id == id);
 
             if (fornecedor != null)
             {

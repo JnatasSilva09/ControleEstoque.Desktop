@@ -4,10 +4,13 @@ using System.ComponentModel.DataAnnotations.Schema;
 
 namespace ControleEstoque.Desktop.Models
 {
-    public class Produto
+    public class Produto : IEmpresaEntity
     {
         [Key]
         public int Id { get; set; }
+
+        // Empresa dona deste registro (preenchido automaticamente ao salvar)
+        public int EmpresaId { get; set; }
 
         [Required(ErrorMessage = "O código interno é obrigatório.")]
         [StringLength(50, ErrorMessage = "O código não pode ultrapassar 50 caracteres.")]
@@ -42,6 +45,9 @@ namespace ControleEstoque.Desktop.Models
         public int EstoqueMinimo { get; set; }
 
         public DateTime DataCadastro { get; set; } = DateTime.Now;
+
+        // Produto inativo some das listas, mas o histórico de movimentações continua
+        public bool Ativo { get; set; } = true;
 
         // Relacionamentos
         public int? CategoriaId { get; set; }

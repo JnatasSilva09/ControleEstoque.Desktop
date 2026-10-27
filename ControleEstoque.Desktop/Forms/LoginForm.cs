@@ -1,6 +1,7 @@
 using System;
 using System.Drawing;
 using System.Windows.Forms;
+using ControleEstoque.Desktop.Helpers;
 using ControleEstoque.Desktop.Models;
 using ControleEstoque.Desktop.Services;
 
@@ -13,6 +14,12 @@ namespace ControleEstoque.Desktop.Forms
         private readonly TextBox _txtLogin = new();
         private readonly TextBox _txtSenha = new() { PasswordChar = '●' };
         private readonly Label _lblErro = new();
+
+        // Proteção simples contra tentativas seguidas de adivinhar a senha
+        private const int MaximoTentativas = 5;
+        private const int SegundosDeEspera = 30;
+        private int _tentativasInvalidas;
+        private DateTime _bloqueadoAte = DateTime.MinValue;
 
         public Usuario? UsuarioAutenticado { get; private set; }
 
@@ -107,6 +114,13 @@ Controls.Add(btnCriarConta);
         {
             _lblErro.Text = string.Empty;
 
+            if (DateTime.Now < _bloqueadoAte)
+            {
+                var segundos = (int)Math.Ceiling((_bloqueadoAte - DateTime.Now).TotalSeconds);
+                _lblErro.Text = $"Muitas tentativas. Aguarde {segundos}s.";
+                return;
+            }
+
             if (string.IsNullOrWhiteSpace(_txtLogin.Text) || string.IsNullOrWhiteSpace(_txtSenha.Text))
             {
                 _lblErro.Text = "Informe usuário e senha.";
@@ -117,44 +131,67 @@ Controls.Add(btnCriarConta);
             {
                 var usuario = _service.Autenticar(_txtLogin.Text.Trim(), _txtSenha.Text);
 
-if (usuario == null)
-{
-    _lblErro.Text = "Usuário ou senha inválidos.";
-    _txtSenha.Clear();
-    _txtSenha.Focus();
-    return;
-}
-
-// Check se o período de teste/assinatura expirou
-if (usuario.Empresa != null)
-{
-    if (usuario.Empresa.StatusAssinatura == StatusAssinatura.Degustacao && DateTime.Now > usuario.Empresa.DataVencimento)
-    {
-        MessageBox.Show("O seu período de teste grátis de 14 dias expirou.\nPor favor, contacte o suporte ou atualize a sua assinatura para continuar.", 
-                        "Teste Expirado", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-        return;
-    }
-}
-
-// Se tudo estiver ok, prossegue para o Dashboard principal
-UsuarioAutenticado = usuario;
-DialogResult = DialogResult.OK;
-Close();
-
                 if (usuario == null)
                 {
-                    _lblErro.Text = "Usuário ou senha inválidos.";
+                    _tentativasInvalidas++;
+                    if (_tentativasInvalidas >= MaximoTentativas)
+                    {
+                        _tentativasInvalidas = 0;
+                        _bloqueadoAte = DateTime.Now.AddSeconds(SegundosDeEspera);
+                        _lblErro.Text = $"Muitas tentativas. Aguarde {SegundosDeEspera}s.";
+                    }
+                    else
+                    {
+                        _lblErro.Text = "Usuário ou senha inválidos.";
+                    }
+
                     _txtSenha.Clear();
                     _txtSenha.Focus();
                     return;
                 }
 
+                _tentativasInvalidas = 0;
+
+                // Verifica se o período de teste/assinatura expirou
+                if (usuario.Empresa != null)
+                {
+                    if (usuario.Empresa.StatusAssinatura == StatusAssinatura.Bloqueada)
+                    {
+                        MessageBox.Show("O acesso desta empresa está bloqueado.\nPor favor, entre em contato com o suporte.",
+                                        "Acesso Bloqueado", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                        return;
+                    }
+
+                    if (usuario.Empresa.StatusAssinatura == StatusAssinatura.Degustacao && DateTime.Now > usuario.Empresa.DataVencimento)
+                    {
+                        MessageBox.Show("O seu período de teste grátis de 14 dias expirou.\nPor favor, entre em contato com o suporte ou atualize a sua assinatura para continuar.",
+                                        "Teste Expirado", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                        return;
+                    }
+                }
+
+                // Senha provisória (usuário novo ou senha redefinida): precisa criar uma senha própria
+                if (usuario.PrecisaTrocarSenha)
+                {
+                    using var trocarSenha = new TrocarSenhaForm();
+                    if (trocarSenha.ShowDialog(this) != DialogResult.OK)
+                    {
+                        _lblErro.Text = "Crie uma nova senha para continuar.";
+                        _txtSenha.Clear();
+                        return;
+                    }
+
+                    _service.AlterarSenha(usuario.Id, trocarSenha.NovaSenha);
+                }
+
+                // Se tudo estiver ok, prossegue para o Dashboard principal
                 UsuarioAutenticado = usuario;
                 DialogResult = DialogResult.OK;
                 Close();
             }
             catch (Exception ex)
             {
+                LogHelper.Erro(ex, "Login");
                 _lblErro.Text = "Erro ao conectar ao banco de dados.";
                 MessageBox.Show($"Detalhes do erro: {ex.Message}", "Erro de Autenticação", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }

@@ -2,10 +2,13 @@ using System.ComponentModel.DataAnnotations;
 
 namespace ControleEstoque.Desktop.Models
 {
-    public class Configuracao
+    public class Configuracao : IEmpresaEntity
     {
         [Key]
         public int Id { get; set; }
+
+        // Empresa dona deste registro (preenchido automaticamente ao salvar)
+        public int EmpresaId { get; set; }
 
         [Required(ErrorMessage = "O nome da empresa é obrigatório.")]
         [StringLength(150, ErrorMessage = "O nome da empresa não pode ultrapassar 150 caracteres.")]
@@ -27,7 +30,7 @@ namespace ControleEstoque.Desktop.Models
         [StringLength(255, ErrorMessage = "O endereço não pode ultrapassar 255 caracteres.")]
         public string? Endereco { get; set; }
 
-        // Logo guardado como bytes da imagem dentro do próprio banco SQLite
+        // Logo salvo como bytes da imagem dentro do próprio banco SQLite
         public byte[]? Logo { get; set; }
     }
 }
