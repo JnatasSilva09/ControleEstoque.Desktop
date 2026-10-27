@@ -1,7 +1,7 @@
 using System;
 using System.Drawing;
 using System.Windows.Forms;
-using ControleEstoque.Desktop.Helpers;
+using ControleEstoque.Aplicacao.Helpers;
 
 namespace ControleEstoque.Desktop.Forms
 {

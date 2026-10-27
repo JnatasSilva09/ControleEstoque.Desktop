@@ -1,11 +1,11 @@
 using System;
 using System.IO;
-using ControleEstoque.Desktop.Data;
-using ControleEstoque.Desktop.Helpers;
-using ControleEstoque.Desktop.Models;
-using ControleEstoque.Desktop.Services;
 using Microsoft.Data.Sqlite;
 using Xunit;
+using ControleEstoque.Aplicacao.Services;
+using ControleEstoque.Desktop.Helpers;
+using ControleEstoque.Dominio.Models;
+using ControleEstoque.Infra.Data;
 
 namespace ControleEstoque.Testes;
 

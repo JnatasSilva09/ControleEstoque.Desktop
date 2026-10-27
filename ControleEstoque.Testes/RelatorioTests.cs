@@ -1,5 +1,6 @@
-using ControleEstoque.Desktop.Services;
 using Xunit;
+using ControleEstoque.Aplicacao.Services;
+using ControleEstoque.Dominio.Models;
 
 namespace ControleEstoque.Testes;
 

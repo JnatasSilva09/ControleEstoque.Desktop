@@ -3,9 +3,9 @@ using System.Collections.Generic;
 using System.Drawing;
 using System.Linq;
 using System.Windows.Forms;
+using ControleEstoque.Aplicacao.Services;
 using ControleEstoque.Desktop.Helpers;
-using ControleEstoque.Desktop.Models;
-using ControleEstoque.Desktop.Services;
+using ControleEstoque.Dominio.Models;
 
 namespace ControleEstoque.Desktop.Forms
 {
@@ -52,7 +52,7 @@ namespace ControleEstoque.Desktop.Forms
                 FlatStyle = FlatStyle.Flat
             };
             btnNovo.FlatAppearance.BorderSize = 0;
-                      btnNovo.Click += (s, e) => AbrirEdicao(null);
+            btnNovo.Click += (s, e) => AbrirEdicao(null);
             Controls.Add(btnNovo);
 
             var btnEditar = new Button { Text = "Editar", Location = new Point(515, 58), Size = new Size(100, 32) };
@@ -124,7 +124,7 @@ namespace ControleEstoque.Desktop.Forms
             AbrirEdicao(categoria);
         }
 
-      private void AbrirEdicao(CategoriaViewModel? categoria)
+        private void AbrirEdicao(CategoriaViewModel? categoria)
         {
             using var form = new CategoriaEditForm(_servicos, categoria?.Id);
             if (form.ShowDialog() == DialogResult.OK)

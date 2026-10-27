@@ -5,9 +5,10 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using System.Windows.Forms;
+using ControleEstoque.Aplicacao.Services;
 using ControleEstoque.Desktop.Helpers;
-using ControleEstoque.Desktop.Models;
-using ControleEstoque.Desktop.Services;
+using ControleEstoque.Dominio.Models;
+using ControleEstoque.Infra.Helpers;
 
 namespace ControleEstoque.Desktop.Forms
 {

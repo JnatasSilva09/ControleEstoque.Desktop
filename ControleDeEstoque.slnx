@@ -1,4 +1,7 @@
 <Solution>
+  <Project Path="ControleEstoque.Aplicacao/ControleEstoque.Aplicacao.csproj" />
   <Project Path="ControleEstoque.Desktop/ControleEstoque.Desktop.csproj" />
+  <Project Path="ControleEstoque.Dominio/ControleEstoque.Dominio.csproj" />
+  <Project Path="ControleEstoque.Infra/ControleEstoque.Infra.csproj" />
   <Project Path="ControleEstoque.Testes/ControleEstoque.Testes.csproj" />
 </Solution>

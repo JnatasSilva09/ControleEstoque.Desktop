@@ -2,8 +2,8 @@ using System;
 using System.Drawing;
 using System.Linq;
 using System.Windows.Forms;
-using ControleEstoque.Desktop.Models;
-using ControleEstoque.Desktop.Services;
+using ControleEstoque.Aplicacao.Services;
+using ControleEstoque.Dominio.Models;
 
 namespace ControleEstoque.Desktop.Forms
 {

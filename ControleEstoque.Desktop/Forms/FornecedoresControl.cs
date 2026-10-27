@@ -3,9 +3,9 @@ using System.Collections.Generic;
 using System.Drawing;
 using System.Linq;
 using System.Windows.Forms;
+using ControleEstoque.Aplicacao.Services;
 using ControleEstoque.Desktop.Helpers;
-using ControleEstoque.Desktop.Models;
-using ControleEstoque.Desktop.Services;
+using ControleEstoque.Dominio.Models;
 
 namespace ControleEstoque.Desktop.Forms
 {

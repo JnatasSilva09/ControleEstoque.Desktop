@@ -1,9 +1,9 @@
 using System;
 using System.Drawing;
 using System.Windows.Forms;
-using ControleEstoque.Desktop.Helpers;
-using ControleEstoque.Desktop.Models;
-using ControleEstoque.Desktop.Services;
+using ControleEstoque.Aplicacao.Services;
+using ControleEstoque.Dominio.Models;
+using ControleEstoque.Infra.Helpers;
 
 namespace ControleEstoque.Desktop.Forms
 {

@@ -1,10 +1,11 @@
 using System;
 using System.IO;
 using System.Windows.Forms;
-using ControleEstoque.Desktop.Data;
-using ControleEstoque.Desktop.Forms; // Importa o namespace onde estão os seus Forms
+using ControleEstoque.Aplicacao.Services;
+using ControleEstoque.Desktop.Forms;
 using ControleEstoque.Desktop.Helpers;
-using ControleEstoque.Desktop.Services;
+using ControleEstoque.Infra.Data;
+using ControleEstoque.Infra.Helpers;
 
 namespace ControleEstoque.Desktop
 {

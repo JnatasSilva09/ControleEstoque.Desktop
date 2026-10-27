@@ -2,8 +2,9 @@ using System;
 using System.Drawing;
 using System.IO;
 using System.Windows.Forms;
-using ControleEstoque.Desktop.Models;
-using ControleEstoque.Desktop.Services;
+using ControleEstoque.Aplicacao.Services;
+using ControleEstoque.Dominio.Models;
+using ControleEstoque.Infra.Helpers;
 
 namespace ControleEstoque.Desktop.Forms
 {
@@ -229,7 +230,7 @@ namespace ControleEstoque.Desktop.Forms
             }
             catch (Exception ex)
             {
-                Helpers.LogHelper.Erro(ex, "Backup manual");
+                LogHelper.Erro(ex, "Backup manual");
                 MessageBox.Show($"Erro ao fazer o backup: {ex.Message}", "Erro", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         }
@@ -251,7 +252,7 @@ namespace ControleEstoque.Desktop.Forms
 
             try
             {
-                _service.Salvar(new Models.Configuracao
+           _service.Salvar(new Configuracao
                 {
                     Id = _configId,
                     NomeEmpresa = _txtNomeEmpresa.Text.Trim(),
