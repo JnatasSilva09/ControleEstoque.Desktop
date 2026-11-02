@@ -1,0 +1,26 @@
+# Banco PostgreSQL só para desenvolvimento, na sua máquina.
+# Subir:    docker compose up -d
+# Parar:    docker compose stop
+# Apagar o banco e começar do zero: docker compose down -v
+services:
+  postgres:
+    image: postgres:16
+    container_name: controle-estoque-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: estoque
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Crie o arquivo .env com POSTGRES_PASSWORD (veja .env.example)}
+      POSTGRES_DB: controle_estoque
+    ports:
+      # 127.0.0.1: só o seu computador consegue conectar, a rede não
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - pgdados:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U estoque -d controle_estoque"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  pgdados:
