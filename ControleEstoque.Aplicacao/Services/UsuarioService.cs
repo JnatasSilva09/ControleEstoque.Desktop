@@ -35,7 +35,7 @@ namespace ControleEstoque.Aplicacao.Services
             if (!string.IsNullOrWhiteSpace(filtro))
             {
                 var f = filtro.Trim();
-                query = query.Where(u => EF.Functions.Like(u.Nome, $"%{f}%") || EF.Functions.Like(u.Login, $"%{f}%"));
+                query = query.Where(u => EF.Functions.ILike(u.Nome, $"%{f}%") || EF.Functions.ILike(u.Login, $"%{f}%"));
             }
 
             return query.OrderBy(u => u.Nome).ToList();

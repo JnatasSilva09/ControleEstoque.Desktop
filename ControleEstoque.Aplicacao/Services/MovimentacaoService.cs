@@ -1,14 +1,20 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using ControleEstoque.Dominio.Models;
 using ControleEstoque.Infra.Data;
 
 namespace ControleEstoque.Aplicacao.Services
 {
-    // Exceção específica para quando o usuário tenta tirar mais estoque do que existe.
-    public class EstoqueInsuficienteException : Exception
+    public class RegraDeNegocioException : Exception
+    {
+        public RegraDeNegocioException(string mensagem) : base(mensagem) { }
+    }
+
+    public class EstoqueInsuficienteException : RegraDeNegocioException
     {
         public EstoqueInsuficienteException(string mensagem) : base(mensagem) { }
     }
@@ -22,26 +28,24 @@ namespace ControleEstoque.Aplicacao.Services
             _fabrica = fabrica;
         }
 
-        public void RegistrarEntrada(int produtoId, int quantidade, decimal? valorCusto, string? fornecedorNome, DateTime data)
+        public async Task RegistrarEntradaAsync(int produtoId, int quantidade, decimal? valorCusto, string? fornecedorNome, DateTime data, CancellationToken ct = default)
         {
             if (quantidade <= 0)
                 throw new ArgumentException("A quantidade de entrada deve ser maior que zero.");
 
-            using var db = _fabrica.Criar();
-            using var transaction = db.Database.BeginTransaction();
+            await using var db = _fabrica.Criar();
+            await using var transaction = await db.Database.BeginTransactionAsync(ct);
 
             try
             {
-                var produto = db.Produtos.FirstOrDefault(p => p.Id == produtoId)
-                    ?? throw new InvalidOperationException("Produto não encontrado.");
+                var produto = await db.Produtos.FirstOrDefaultAsync(p => p.Id == produtoId, ct)
+                    ?? throw new RegraDeNegocioException("Produto não encontrado.");
 
                 if (!produto.Ativo)
-                    throw new InvalidOperationException("Este produto está inativo e não pode receber movimentações.");
+                    throw new RegraDeNegocioException("Este produto está inativo e não pode receber movimentações.");
 
-                // Regra: entrada sempre aumenta o estoque
                 produto.Quantidade += quantidade;
 
-                // Se um valor de custo foi informado, atualizamos o custo do produto
                 if (valorCusto.HasValue && valorCusto.Value > 0)
                 {
                     produto.PrecoCusto = valorCusto.Value;
@@ -58,42 +62,43 @@ namespace ControleEstoque.Aplicacao.Services
                 };
 
                 db.Movimentacoes.Add(movimentacao);
-                db.SaveChanges();
-
-                transaction.Commit();
+                await db.SaveChangesAsync(ct);
+                await transaction.CommitAsync(ct);
             }
             catch
             {
-                transaction.Rollback();
+                await transaction.RollbackAsync(ct);
                 throw;
             }
         }
 
-        public void RegistrarSaida(int produtoId, int quantidade, string? motivo, DateTime data)
+        public async Task RegistrarSaidaAsync(int produtoId, int quantidade, string? motivo, DateTime data, CancellationToken ct = default)
         {
             if (quantidade <= 0)
                 throw new ArgumentException("A quantidade de saída deve ser maior que zero.");
 
-            using var db = _fabrica.Criar();
-            using var transaction = db.Database.BeginTransaction();
+            await using var db = _fabrica.Criar();
+            await using var transaction = await db.Database.BeginTransactionAsync(ct);
 
             try
             {
-                var produto = db.Produtos.FirstOrDefault(p => p.Id == produtoId)
-                    ?? throw new InvalidOperationException("Produto não encontrado.");
+                // Subtração atômica no banco: previne condição de corrida (dois usuários vendendo o último item juntos)
+                var linhasAfetadas = await db.Produtos
+                    .Where(p => p.Id == produtoId && p.Ativo && p.Quantidade >= quantidade)
+                    .ExecuteUpdateAsync(s => s.SetProperty(p => p.Quantidade, p => p.Quantidade - quantidade), ct);
 
-                if (!produto.Ativo)
-                    throw new InvalidOperationException("Este produto está inativo e não pode receber movimentações.");
-
-                // Regra principal do sistema: não pode sair mais do que existe em estoque
-                if (quantidade > produto.Quantidade)
+                if (linhasAfetadas == 0)
                 {
+                    var p = await db.Produtos.AsNoTracking().FirstOrDefaultAsync(x => x.Id == produtoId, ct);
+                    if (p is null)
+                        throw new RegraDeNegocioException("Produto não encontrado.");
+                    if (!p.Ativo)
+                        throw new RegraDeNegocioException("Este produto está inativo.");
+
                     throw new EstoqueInsuficienteException(
-                        $"Não é possível registrar a saída. Estoque atual de \"{produto.Nome}\": {produto.Quantidade} unidade(s). " +
+                        $"Não é possível registrar a saída. Estoque atual de \"{p.Nome}\": {p.Quantidade} unidade(s). " +
                         $"Quantidade solicitada: {quantidade} unidade(s).");
                 }
-
-                produto.Quantidade -= quantidade;
 
                 var movimentacao = new Movimentacao
                 {
@@ -105,20 +110,19 @@ namespace ControleEstoque.Aplicacao.Services
                 };
 
                 db.Movimentacoes.Add(movimentacao);
-                db.SaveChanges();
-
-                transaction.Commit();
+                await db.SaveChangesAsync(ct);
+                await transaction.CommitAsync(ct);
             }
             catch
             {
-                transaction.Rollback();
+                await transaction.RollbackAsync(ct);
                 throw;
             }
         }
 
-        public List<Movimentacao> GetHistorico(string? produtoFiltro = null, DateTime? inicio = null, DateTime? fim = null)
+        public async Task<List<Movimentacao>> GetHistoricoAsync(string? produtoFiltro = null, DateTime? inicio = null, DateTime? fim = null, CancellationToken ct = default)
         {
-            using var db = _fabrica.Criar();
+            await using var db = _fabrica.Criar();
             var query = db.Movimentacoes
                 .Include(m => m.Produto)
                 .AsNoTracking()
@@ -127,7 +131,7 @@ namespace ControleEstoque.Aplicacao.Services
             if (!string.IsNullOrWhiteSpace(produtoFiltro))
             {
                 var f = produtoFiltro.Trim();
-                query = query.Where(m => m.Produto != null && EF.Functions.Like(m.Produto.Nome, $"%{f}%"));
+                query = query.Where(m => m.Produto != null && EF.Functions.ILike(m.Produto.Nome, $"%{f}%"));
             }
 
             if (inicio.HasValue)
@@ -138,37 +142,33 @@ namespace ControleEstoque.Aplicacao.Services
 
             if (fim.HasValue)
             {
-                // Garante que a busca pegue até o último segundo do dia final (23:59:59)
                 var dataFim = fim.Value.Date.AddDays(1).AddTicks(-1);
                 query = query.Where(m => m.Data <= dataFim);
             }
 
-            return query.OrderByDescending(m => m.Data).ToList();
+            return await query.OrderByDescending(m => m.Data).ToListAsync(ct);
         }
 
-        public int TotalEntradas()
+        public async Task<int> TotalEntradasAsync(CancellationToken ct = default)
         {
-            using var db = _fabrica.Criar();
-            return db.Movimentacoes
+            await using var db = _fabrica.Criar();
+            return await db.Movimentacoes
                 .Where(m => m.Tipo == TipoMovimentacao.Entrada)
-                .Sum(m => (int?)m.Quantidade) ?? 0;
+                .SumAsync(m => (int?)m.Quantidade, ct) ?? 0;
         }
 
-       public int TotalSaidas()
+        public async Task<int> TotalSaidasAsync(CancellationToken ct = default)
         {
-            using var db = _fabrica.Criar();
-            return db.Movimentacoes
-                     .Where(m => m.Tipo == TipoMovimentacao.Saida)
-                     .Sum(m => (int?)m.Quantidade) ?? 0;
+            await using var db = _fabrica.Criar();
+            return await db.Movimentacoes
+                .Where(m => m.Tipo == TipoMovimentacao.Saida)
+                .SumAsync(m => (int?)m.Quantidade, ct) ?? 0;
         }
 
-        /// <summary>
-        /// Retorna todas as movimentações registadas para efeitos de relatório.
-        /// </summary>
-        public List<Movimentacao> ObterMovimentacoes()
+        public async Task<List<Movimentacao>> ObterMovimentacoesAsync(CancellationToken ct = default)
         {
-            using var db = _fabrica.Criar();
-            return db.Movimentacoes.ToList();
+            await using var db = _fabrica.Criar();
+            return await db.Movimentacoes.ToListAsync(ct);
         }
-    } // <-- Esta é a chave que fecha a classe MovimentacaoService
-} // <-- Esta é a chave que fecha o namespace
+    }
+}

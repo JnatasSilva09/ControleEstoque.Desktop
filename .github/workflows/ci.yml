@@ -1,11 +1,41 @@
 name: CI
+
 on:
   push:
     branches: [main, master]
   pull_request:
+
 jobs:
-  build-test:
-    runs-on: windows-latest   # o projeto é net8.0-windows (WinForms)
+  testes:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: estoque
+          POSTGRES_PASSWORD: senha_so_do_ci
+          POSTGRES_DB: controle_estoque
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U estoque"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+    env:
+      ESTOQUE_TESTES_CONEXAO: Host=localhost;Port=5432;Username=estoque;Password=senha_so_do_ci
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+      - name: Restaurar
+        run: dotnet restore ControleEstoque.Testes/ControleEstoque.Testes.csproj
+      - name: Testar
+        run: dotnet test ControleEstoque.Testes/ControleEstoque.Testes.csproj -c Release --no-restore
+
+  desktop:
+    runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-dotnet@v4
@@ -13,6 +43,7 @@ jobs:
           dotnet-version: |
             8.0.x
             9.0.x
-      - run: dotnet restore
-      - run: dotnet build --no-restore -c Release
-      - run: dotnet test --no-build -c Release
+      - name: Compilar tudo
+        run: |
+          dotnet restore
+          dotnet build --no-restore -c Release

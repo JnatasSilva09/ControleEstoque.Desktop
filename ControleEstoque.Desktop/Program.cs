@@ -1,9 +1,9 @@
 using System;
-using System.IO;
 using System.Windows.Forms;
 using ControleEstoque.Aplicacao.Services;
 using ControleEstoque.Desktop.Forms;
 using ControleEstoque.Desktop.Helpers;
+using ControleEstoque.Dominio.Contexto;
 using ControleEstoque.Infra.Data;
 using ControleEstoque.Infra.Helpers;
 
@@ -32,38 +32,26 @@ namespace ControleEstoque.Desktop
             };
 
             // Monta uma vez só o que as telas e os serviços vão usar
-            var tenant = new ContextoDoTenantDesktop();
-            var fabrica = new AppDbContextFactory(tenant);
-            var servicos = new Servicos(fabrica, tenant);
+            var tenant = new ContextoDoTenantManual();
+            AppDbContextFactory fabrica;
+            Servicos servicos;
 
             try
             {
-                // Garante que o banco de dados e todas as tabelas (incluindo Empresas) são criados automaticamente
-                bool bancoJaExistia = File.Exists(AppDbContext.CaminhoBanco);
+                var conexao = ConfiguracaoBanco.ObterConexao();
+                fabrica = new AppDbContextFactory(tenant, conexao);
+                servicos = new Servicos(fabrica, tenant);
 
-                // Se já existe um banco, guarda uma cópia antes de mexer em qualquer coisa
-                if (bancoJaExistia)
-                {
-                    servicos.Backup.FazerBackupAntesDeAtualizar();
-                }
-
-                using (var context = fabrica.Criar())
-                {
-                    context.Database.EnsureCreated();
-
-                    // Bancos antigos recebem as colunas e tabelas novas sem perder dados
-                    if (bancoJaExistia)
-                    {
-                        AtualizadorBanco.Atualizar(context);
-                    }
-                }
-
-                servicos.Backup.FazerBackupAutomatico();
+                // Cria o banco e as tabelas se ainda não existirem
+                // (na Fase 2 passo 4 isto vira "migrations")
+                using var context = fabrica.Criar();
+                context.Database.EnsureCreated();
             }
             catch (Exception ex)
             {
                 LogHelper.Erro(ex, "Inicialização do banco de dados");
-                MessageBox.Show($"Não foi possível iniciar o banco de dados.\n\n{ex.Message}",
+                MessageBox.Show("Não foi possível conectar ao banco de dados PostgreSQL.\n\n" +
+                                "O container está rodando? (docker compose up -d)\n\n" + ex.Message,
                                 "Erro", MessageBoxButtons.OK, MessageBoxIcon.Error);
                 return;
             }

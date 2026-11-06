@@ -1,6 +1,5 @@
 using ControleEstoque.Dominio.Contexto;
 using ControleEstoque.Dominio.Models;
-using ControleEstoque.Infra.Backups;
 using ControleEstoque.Infra.Data;
 
 
@@ -19,7 +18,6 @@ namespace ControleEstoque.Aplicacao.Services
             Usuarios = new UsuarioService(fabrica, tenant);
             Configuracao = new ConfiguracaoService(fabrica);
             Autenticacao = new AuthService(fabrica);
-            Backup = new BackupService(fabrica);
         }
 
         public ProdutoService Produtos { get; }
@@ -29,6 +27,5 @@ namespace ControleEstoque.Aplicacao.Services
         public UsuarioService Usuarios { get; }
         public ConfiguracaoService Configuracao { get; }
         public AuthService Autenticacao { get; }
-        public BackupService Backup { get; }
     }
 }

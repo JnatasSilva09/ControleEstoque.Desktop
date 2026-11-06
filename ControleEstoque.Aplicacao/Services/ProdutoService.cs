@@ -1,7 +1,10 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
+using Npgsql;
 using ControleEstoque.Aplicacao.Helpers;
 using ControleEstoque.Dominio.Models;
 using ControleEstoque.Infra.Data;
@@ -17,78 +20,63 @@ namespace ControleEstoque.Aplicacao.Services
             _fabrica = fabrica;
         }
 
-        public List<Produto> GetAll(string? filtro = null)
+        public async Task<List<Produto>> GetAllAsync(string? filtro = null, CancellationToken ct = default)
         {
-            using var db = _fabrica.Criar();
+            await using var db = _fabrica.Criar();
             var query = db.Produtos
                 .Include(p => p.Categoria)
                 .Include(p => p.Fornecedor)
                 .AsNoTracking()
-                .Where(p => p.Ativo) // produtos inativados não aparecem na lista
+                .Where(p => p.Ativo)
                 .AsQueryable();
 
             if (!string.IsNullOrWhiteSpace(filtro))
             {
                 var f = filtro.Trim();
                 query = query.Where(p =>
-                    EF.Functions.Like(p.Nome, $"%{f}%") ||
-                    EF.Functions.Like(p.Codigo, $"%{f}%") ||
-                    (p.CodigoBarras != null && EF.Functions.Like(p.CodigoBarras, $"%{f}%")));
+                    EF.Functions.ILike(p.Nome, $"%{f}%") ||
+                    EF.Functions.ILike(p.Codigo, $"%{f}%") ||
+                    (p.CodigoBarras != null && EF.Functions.ILike(p.CodigoBarras, $"%{f}%")));
             }
 
-            return query.OrderBy(p => p.Nome).ToList();
+            return await query.OrderBy(p => p.Nome).ToListAsync(ct);
         }
 
-        public Produto? GetById(int id)
+        public async Task<Produto?> GetByIdAsync(int id, CancellationToken ct = default)
         {
-            using var db = _fabrica.Criar();
-            return db.Produtos
+            await using var db = _fabrica.Criar();
+            return await db.Produtos
                 .Include(p => p.Categoria)
                 .Include(p => p.Fornecedor)
                 .AsNoTracking()
-                .FirstOrDefault(p => p.Id == id);
+                .FirstOrDefaultAsync(p => p.Id == id, ct);
         }
 
-        public void Add(Produto produto)
+        public async Task AddAsync(Produto produto, CancellationToken ct = default)
         {
-            using var db = _fabrica.Criar();
-
             produto.Nome = produto.Nome.Trim();
             produto.Codigo = produto.Codigo.Trim();
             if (!string.IsNullOrWhiteSpace(produto.CodigoBarras))
                 produto.CodigoBarras = produto.CodigoBarras.Trim();
 
-            // Confere as regras do modelo (campos obrigatórios, tamanhos, valores negativos...)
             ValidacaoHelper.Garantir(produto);
-
-            // Validação de unicidade do código do produto
-            var existente = db.Produtos.FirstOrDefault(p => p.Codigo.ToLower() == produto.Codigo.ToLower());
-            if (existente != null)
-            {
-                var aviso = existente.Ativo ? "" : " (o produto está inativo)";
-                throw new InvalidOperationException($"Já existe um produto cadastrado com o código '{produto.Codigo}'{aviso}.");
-            }
-
             produto.Ativo = true;
 
-            // Validação de unicidade do código de barras (se informado)
-            if (!string.IsNullOrWhiteSpace(produto.CodigoBarras))
-            {
-                bool codigoBarrasExiste = db.Produtos.Any(p => p.CodigoBarras != null && p.CodigoBarras.ToLower() == produto.CodigoBarras.ToLower());
-                if (codigoBarrasExiste)
-                {
-                    throw new InvalidOperationException($"Já existe um produto cadastrado com o código de barras '{produto.CodigoBarras}'.");
-                }
-            }
-
+            await using var db = _fabrica.Criar();
             db.Produtos.Add(produto);
-            db.SaveChanges();
+
+            try
+            {
+                await db.SaveChangesAsync(ct);
+            }
+            catch (DbUpdateException ex) when (ex.InnerException is PostgresException { SqlState: "23505" })
+            {
+                throw new RegraDeNegocioException("Já existe um produto cadastrado com este código ou código de barras.");
+            }
         }
 
-        public void Update(Produto produto)
+        public async Task UpdateAsync(Produto produto, CancellationToken ct = default)
         {
-            using var db = _fabrica.Criar();
-
             produto.Nome = produto.Nome.Trim();
             produto.Codigo = produto.Codigo.Trim();
             if (!string.IsNullOrWhiteSpace(produto.CodigoBarras))
@@ -96,27 +84,9 @@ namespace ControleEstoque.Aplicacao.Services
 
             ValidacaoHelper.Garantir(produto);
 
-            // Validação de unicidade do código
-            bool codigoExiste = db.Produtos.Any(p => p.Codigo.ToLower() == produto.Codigo.ToLower() && p.Id != produto.Id);
-            if (codigoExiste)
-            {
-                throw new InvalidOperationException($"Já existe outro produto cadastrado com o código '{produto.Codigo}'.");
-            }
-
-            // Validação de unicidade do código de barras
-            if (!string.IsNullOrWhiteSpace(produto.CodigoBarras))
-            {
-                bool codigoBarrasExiste = db.Produtos.Any(p => p.CodigoBarras != null && p.CodigoBarras.ToLower() == produto.CodigoBarras.ToLower() && p.Id != produto.Id);
-                if (codigoBarrasExiste)
-                {
-                    throw new InvalidOperationException($"Já existe outro produto cadastrado com o código de barras '{produto.CodigoBarras}'.");
-                }
-            }
-
-            // Carrega o registro que já existe e copia só os campos editáveis
-            // (assim a data de cadastro, a empresa e a situação do produto não são sobrescritas)
-            var atual = db.Produtos.FirstOrDefault(p => p.Id == produto.Id)
-                ?? throw new InvalidOperationException("Produto não encontrado.");
+            await using var db = _fabrica.Criar();
+            var atual = await db.Produtos.FirstOrDefaultAsync(p => p.Id == produto.Id, ct)
+                ?? throw new RegraDeNegocioException("Produto não encontrado.");
 
             atual.Codigo = produto.Codigo;
             atual.CodigoBarras = produto.CodigoBarras;
@@ -125,61 +95,38 @@ namespace ControleEstoque.Aplicacao.Services
             atual.UnidadeMedida = produto.UnidadeMedida;
             atual.PrecoCusto = produto.PrecoCusto;
             atual.PrecoVenda = produto.PrecoVenda;
-            // Quantidade NÃO é copiada aqui de propósito: o estoque só muda por entrada, saída ou ajuste.         
             atual.EstoqueMinimo = produto.EstoqueMinimo;
             atual.CategoriaId = produto.CategoriaId;
             atual.FornecedorId = produto.FornecedorId;
 
-            db.SaveChanges();
-        }
-
-        // Em vez de apagar, o produto é inativado: assim o histórico de movimentações continua intacto
-        public void Delete(int id)
-        {
-            using var db = _fabrica.Criar();
-            var produto = db.Produtos.FirstOrDefault(p => p.Id == id);
-            if (produto != null)
+            try
             {
-                produto.Ativo = false;
-                db.SaveChanges();
+                await db.SaveChangesAsync(ct);
+            }
+            catch (DbUpdateException ex) when (ex.InnerException is PostgresException { SqlState: "23505" })
+            {
+                throw new RegraDeNegocioException("Já existe outro produto cadastrado com este código ou código de barras.");
             }
         }
 
-        public List<Produto> GetEstoqueBaixo()
+        public async Task DeleteAsync(int id, CancellationToken ct = default)
         {
-            using var db = _fabrica.Criar();
-            return db.Produtos
-                .Include(p => p.Categoria)
-                .AsNoTracking()
-                .Where(p => p.Ativo && p.Quantidade > 0 && p.Quantidade <= p.EstoqueMinimo)
-                .OrderBy(p => p.Quantidade)
-                .ToList();
+            await using var db = _fabrica.Criar();
+            var produto = await db.Produtos.FirstOrDefaultAsync(p => p.Id == id, ct);
+            if (produto != null)
+            {
+                produto.Ativo = false;
+                await db.SaveChangesAsync(ct);
+            }
         }
 
-        public List<Produto> GetSemEstoque()
+        public async Task<decimal> ValorTotalEstoqueAsync(CancellationToken ct = default)
         {
-            using var db = _fabrica.Criar();
-            return db.Produtos
-                .Include(p => p.Categoria)
-                .AsNoTracking()
-                .Where(p => p.Ativo && p.Quantidade <= 0)
-                .OrderBy(p => p.Nome)
-                .ToList();
-        }
-
-        public int TotalProdutos()
-        {
-            using var db = _fabrica.Criar();
-            return db.Produtos.Count(p => p.Ativo);
-        }
-
-        public decimal ValorTotalEstoque()
-        {
-            using var db = _fabrica.Criar();
-            return db.Produtos
-                     .Where(p => p.Ativo)
-                     .AsEnumerable()
-                     .Sum(p => p.PrecoCusto * p.Quantidade);
+            await using var db = _fabrica.Criar();
+            // Realiza o cálculo diretamente no banco via SQL, evitando carregar tudo para a memória (AsEnumerable)
+            return await db.Produtos
+                .Where(p => p.Ativo)
+                .SumAsync(p => p.PrecoCusto * p.Quantidade, ct);
         }
     }
 }

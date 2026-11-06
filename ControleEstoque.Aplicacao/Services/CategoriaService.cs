@@ -27,7 +27,7 @@ namespace ControleEstoque.Aplicacao.Services
             if (!string.IsNullOrWhiteSpace(filtro))
             {
             filtro = filtro.Trim();
-            query = query.Where(c => EF.Functions.Like(c.Nome, $"%{filtro}%"));
+            query = query.Where(c => EF.Functions.ILike(c.Nome, $"%{filtro}%"));
         }
 
         return query

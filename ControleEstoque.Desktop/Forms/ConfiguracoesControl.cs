@@ -21,7 +21,6 @@ namespace ControleEstoque.Desktop.Forms
         private readonly TextBox _txtEndereco = new();
         private readonly PictureBox _picLogo = new();
         private readonly Button _btnSalvar = new();
-        private readonly Button _btnBackup = new();
         private readonly Button _btnEscolherLogo = new();
         
         private byte[]? _logoBytes;
@@ -94,13 +93,6 @@ namespace ControleEstoque.Desktop.Forms
             _btnSalvar.Click += BtnSalvar_Click;
             painel.Controls.Add(_btnSalvar);
 
-            _btnBackup.Text = "Fazer Backup do Banco";
-            _btnBackup.Location = new Point(240, y);
-            _btnBackup.Size = new Size(200, 38);
-            _btnBackup.FlatStyle = FlatStyle.Flat;
-            _btnBackup.Click += BtnBackup_Click;
-            painel.Controls.Add(_btnBackup);
-
             y += 60;
             painel.Height = y;
 
@@ -135,7 +127,6 @@ namespace ControleEstoque.Desktop.Forms
                 _txtEndereco.ReadOnly = true;
                 _btnEscolherLogo.Enabled = false;
                 _btnSalvar.Enabled = false;
-                _btnBackup.Enabled = false;
                 _btnSalvar.BackColor = Color.LightGray;
 
                 ToolTip dica = new();
@@ -206,35 +197,6 @@ namespace ControleEstoque.Desktop.Forms
             }
         }
 
-        private void BtnBackup_Click(object? sender, EventArgs e)
-        {
-            if (_usuarioLogado.Perfil != PerfilUsuario.Administrador)
-            {
-                MessageBox.Show("Acesso negado. Apenas administradores podem fazer backup.", "Permissão Insuficiente", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                return;
-            }
-
-            using var dialogo = new SaveFileDialog
-            {
-                Filter = "Banco de dados (*.db)|*.db",
-                Title = "Salvar backup do banco de dados",
-                FileName = $"backup-estoque-{DateTime.Now:yyyyMMdd-HHmm}.db"
-            };
-
-            if (dialogo.ShowDialog() != DialogResult.OK) return;
-
-            try
-            {
-                _servicos.Backup.SalvarCopia(dialogo.FileName);
-                MessageBox.Show("Backup salvo com sucesso!", "Sucesso", MessageBoxButtons.OK, MessageBoxIcon.Information);
-            }
-            catch (Exception ex)
-            {
-                LogHelper.Erro(ex, "Backup manual");
-                MessageBox.Show($"Erro ao fazer o backup: {ex.Message}", "Erro", MessageBoxButtons.OK, MessageBoxIcon.Error);
-            }
-        }
-
         private void BtnSalvar_Click(object? sender, EventArgs e)
         {
             if (_usuarioLogado.Perfil != PerfilUsuario.Administrador)
@@ -252,7 +214,7 @@ namespace ControleEstoque.Desktop.Forms
 
             try
             {
-           _service.Salvar(new Configuracao
+                _service.Salvar(new Configuracao
                 {
                     Id = _configId,
                     NomeEmpresa = _txtNomeEmpresa.Text.Trim(),

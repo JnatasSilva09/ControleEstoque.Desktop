@@ -1,10 +1,10 @@
-using ControleEstoque.Dominio.Contexto;
-using ControleEstoque.Dominio.Models;
+﻿using ControleEstoque.Dominio.Models;
 
-namespace ControleEstoque.Desktop.Helpers
+namespace ControleEstoque.Dominio.Contexto
 {
-    // Versão do desktop: um usuário por vez, definido no login e limpo no logout.
-    public class ContextoDoTenantDesktop : IContextoDoTenant
+    // Um usuário por vez, definido no login e limpo no logout.
+    // Serve ao desktop e aos testes. A API (Fase 3) terá outra versão que lê o token do usuário.
+    public class ContextoDoTenantManual : IContextoDoTenant
     {
         public int EmpresaId { get; private set; }
         public int UsuarioId { get; private set; }

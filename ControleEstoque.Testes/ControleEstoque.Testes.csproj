@@ -1,7 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-   <TargetFramework>net8.0-windows</TargetFramework>
+    <TargetFramework>net8.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <IsPackable>false</IsPackable>
@@ -22,7 +22,9 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\ControleEstoque.Desktop\ControleEstoque.Desktop.csproj" />
+    <ProjectReference Include="..\ControleEstoque.Dominio\ControleEstoque.Dominio.csproj" />
+    <ProjectReference Include="..\ControleEstoque.Infra\ControleEstoque.Infra.csproj" />
+    <ProjectReference Include="..\ControleEstoque.Aplicacao\ControleEstoque.Aplicacao.csproj" />
   </ItemGroup>
 
 </Project>
